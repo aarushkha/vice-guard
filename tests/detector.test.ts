@@ -76,8 +76,11 @@ describe('local spoiler matching', () => {
     expect(detect('GTA 6 ending', { ...defaults, enabled: false })).toBe(false);
   });
   it('repairs invalid stored preferences and bounds custom input', () => {
-    expect(parseSettings({ allowReveal: false }).allowReveal).toBe(false);
-    expect(parseSettings({ allowReveal: 'false' }).allowReveal).toBe(true);
+    expect(parseSettings({ showBadge: false }).showBadge).toBe(false);
+    expect(parseSettings({ showBadge: 'false' }).showBadge).toBe(true);
+    expect(parseSettings({ clipThreshold: 2 }).clipThreshold).toBe(
+      defaults.clipThreshold,
+    );
     expect(parseSettings(null)).toEqual(defaults);
     expect(
       parseSettings({
