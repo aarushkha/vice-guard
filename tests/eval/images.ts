@@ -3,7 +3,13 @@
 // 2. Runs the same Tesseract settings and MobileCLIP-S0 model the extension ships.
 // Writes tests/eval/.cache/{ocr,clip,timing}.json. Optional real images go in
 // tests/eval/images-real/{positive,negative}/ (gitignored) and get their own scores.
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
 import { createWorker, OEM, PSM } from 'tesseract.js';
@@ -15,7 +21,14 @@ import {
 } from '@huggingface/transformers';
 import { CLIP_MODEL } from '../../lib/image/clip-model';
 import sharp from 'sharp';
-import { brightTextMask, confidentText, ocrParameters, recognizeOptions } from '../../lib/image/ocr';
+import {
+  brightTextMask,
+  confidentText,
+  OCR_MAX_SIDE,
+  OCR_SCALE,
+  ocrParameters,
+  recognizeOptions,
+} from '../../lib/image/ocr';
 import { gtaProbability, type PromptEmbeddings } from '../../lib/image/score';
 import prompts from '../../lib/image/prompts.json';
 import type { Example } from './build-dataset';
@@ -23,7 +36,9 @@ import type { Example } from './build-dataset';
 const cache = 'tests/eval/.cache';
 const thumbs = join(cache, 'thumbs');
 mkdirSync(thumbs, { recursive: true });
-const dataset = JSON.parse(readFileSync('tests/eval/dataset.json', 'utf8')) as Example[];
+const dataset = JSON.parse(
+  readFileSync('tests/eval/dataset.json', 'utf8'),
+) as Example[];
 const withThumbs = dataset.filter((example) => example.thumb);
 
 const scenes: Record<string, string> = {
@@ -50,8 +65,13 @@ function html(example: Example, index: number) {
 }
 
 async function render() {
-  const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 480, height: 360 }, deviceScaleFactor: 2 });
+  const browser = await chromium.launch({
+    executablePath: process.env.VG_CHROMIUM || undefined,
+  });
+  const page = await browser.newPage({
+    viewport: { width: 480, height: 360 },
+    deviceScaleFactor: 2,
+  });
   for (const [index, example] of withThumbs.entries()) {
     const file = join(thumbs, `${example.id}.png`);
     if (existsSync(file)) continue;
@@ -64,22 +84,34 @@ async function render() {
 function realImages() {
   const root = 'tests/eval/images-real';
   const files: { id: string; path: string; label: 0 | 1 }[] = [];
-  for (const [folder, label] of [['positive', 1], ['negative', 0]] as const) {
+  for (const [folder, label] of [
+    ['positive', 1],
+    ['negative', 0],
+  ] as const) {
     const dir = join(root, folder);
     if (!existsSync(dir)) continue;
     for (const name of readdirSync(dir))
       if (/\.(png|jpe?g|webp)$/i.test(name))
-        files.push({ id: `real:${folder}/${name}`, path: join(dir, name), label });
+        files.push({
+          id: `real:${folder}/${name}`,
+          path: join(dir, name),
+          label,
+        });
   }
   return files;
 }
 
 const percentile = (values: number[], p: number) =>
-  [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * p))] ?? 0;
+  [...values].sort((a, b) => a - b)[
+    Math.min(values.length - 1, Math.floor(values.length * p))
+  ] ?? 0;
 
 await render();
 const images = [
-  ...withThumbs.map((example) => ({ id: example.id, path: join(thumbs, `${example.id}.png`) })),
+  ...withThumbs.map((example) => ({
+    id: example.id,
+    path: join(thumbs, `${example.id}.png`),
+  })),
   ...realImages(),
 ];
 
@@ -88,38 +120,72 @@ const worker = await createWorker('eng', OEM.LSTM_ONLY, {
   gzip: true,
   cacheMethod: 'none',
 });
-await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, ...ocrParameters });
+await worker.setParameters({
+  tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+  ...ocrParameters,
+});
 
-/** The same two passes as the offscreen document. */
-async function ocrPasses(path: string) {
-  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const mask = await sharp(Buffer.from(brightTextMask(data, info.width, info.height)), {
-    raw: { width: info.width, height: info.height, channels: 4 },
+/**
+ * The same two passes as the offscreen document, on the image as a site
+ * serves it (480x360 for rendered thumbnails) scaled the same way.
+ */
+async function ocrPasses(path: string, synthetic: boolean) {
+  const source = sharp(path);
+  const meta = await source.metadata();
+  const [w0, h0] = synthetic ? [480, 360] : [meta.width!, meta.height!];
+  const scale = Math.min(OCR_SCALE, OCR_MAX_SIDE / Math.max(w0, h0));
+  const [w, h] = [Math.round(w0 * scale), Math.round(h0 * scale)];
+  const { data, info } = await sharp(
+    await source.resize(w0, h0).png().toBuffer(),
+  )
+    .resize(w, h)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const original = await sharp(data, {
+    raw: { width: w, height: h, channels: 4 },
   })
     .png()
     .toBuffer();
+  const mask = await sharp(
+    Buffer.from(brightTextMask(data, info.width, info.height)),
+    {
+      raw: { width: info.width, height: info.height, channels: 4 },
+    },
+  )
+    .png()
+    .toBuffer();
   const texts = [];
-  for (const input of [path, mask])
-    texts.push(confidentText((await worker.recognize(input, {}, recognizeOptions)).data));
+  for (const input of [original, mask])
+    texts.push(
+      confidentText((await worker.recognize(input, {}, recognizeOptions)).data),
+    );
   return texts.join(' | ');
 }
 
 env.allowRemoteModels = false;
 env.localModelPath = 'public/models/';
 const processor = await AutoProcessor.from_pretrained(CLIP_MODEL);
-const model = await CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, { dtype: 'q8' });
+const model = await CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, {
+  dtype: 'q8',
+});
 
 const ocr: Record<string, string> = {};
 const clip: Record<string, number> = {};
 const timing = { ocr: [] as number[], clip: [] as number[] };
 for (const image of images) {
   let start = performance.now();
-  ocr[image.id] = await ocrPasses(image.path);
+  ocr[image.id] = await ocrPasses(image.path, !image.id.startsWith('real:'));
   timing.ocr.push(performance.now() - start);
   start = performance.now();
   const inputs = await processor(await RawImage.read(image.path));
-  const { image_embeds } = (await model(inputs)) as { image_embeds: { data: Float32Array } };
-  clip[image.id] = gtaProbability(image_embeds.data, prompts as PromptEmbeddings);
+  const { image_embeds } = (await model(inputs)) as {
+    image_embeds: { data: Float32Array };
+  };
+  clip[image.id] = gtaProbability(
+    image_embeds.data,
+    prompts as PromptEmbeddings,
+  );
   timing.clip.push(performance.now() - start);
 }
 await worker.terminate();
@@ -129,11 +195,22 @@ writeFileSync(join(cache, 'clip.json'), JSON.stringify(clip, null, 1));
 const summary = Object.fromEntries(
   Object.entries(timing).map(([name, values]) => [
     name,
-    { mean: Math.round(values.reduce((a, b) => a + b, 0) / values.length), p95: Math.round(percentile(values, 0.95)) },
+    {
+      mean: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
+      p95: Math.round(percentile(values, 0.95)),
+    },
   ]),
 );
 writeFileSync(
   join(cache, 'timing.json'),
-  JSON.stringify({ images: images.length, ...summary, real: realImages().map((r) => ({ id: r.id, label: r.label })) }, null, 1),
+  JSON.stringify(
+    {
+      images: images.length,
+      ...summary,
+      real: realImages().map((r) => ({ id: r.id, label: r.label })),
+    },
+    null,
+    1,
+  ),
 );
 console.log(`Analysed ${images.length} images. Per image (ms):`, summary);

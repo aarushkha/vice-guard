@@ -15,11 +15,17 @@ export const generic: SiteModule = {
     '.post',
     '.comment',
   ].join(','),
-  // Headings in a list of story cards take the whole card with them.
-  card: (element) =>
-    element.matches('h1, h2, h3, [itemprop="headline"]')
-      ? (element.closest<HTMLElement>('article, [role="article"], li') ?? element)
-      : element,
+  // Headings in a list of story cards take the whole card with them. Other
+  // elements (the engine also offers mutated containers such as <main>) are
+  // never cards themselves.
+  card(element) {
+    if (element.matches('h1, h2, h3, [itemprop="headline"]'))
+      return (
+        element.closest<HTMLElement>('article, [role="article"], li') ?? element
+      );
+    return element.matches(generic.cards) ? element : null;
+  },
   includeNested: true,
-  images: (card) => (card.matches('h1, h2, h3') ? [] : imagesIn(card, 'img', 1)),
+  images: (card) =>
+    card.matches('h1, h2, h3') ? [] : imagesIn(card, 'img', 1),
 };

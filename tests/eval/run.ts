@@ -17,10 +17,17 @@ const generated = load<Row[]>('tests/eval/dataset.json', []);
 const holdout = readFileSync('tests/eval/holdout.jsonl', 'utf8')
   .trim()
   .split('\n')
-  .map((line) => ({ ...(JSON.parse(line) as Row), category: 'holdout', carrier: 'text' as const }));
+  .map((line) => ({
+    ...(JSON.parse(line) as Row),
+    category: 'holdout',
+    carrier: 'text' as const,
+  }));
 const ocr = load<Record<string, string>>('tests/eval/.cache/ocr.json', {});
 const clip = load<Record<string, number>>('tests/eval/.cache/clip.json', {});
-const clipThreshold = Number(process.env.CLIP_THRESHOLD ?? 0.5);
+// Same threshold the extension ships with, unless overridden.
+const clipThreshold = Number(
+  process.env.CLIP_THRESHOLD ?? defaults.clipThreshold,
+);
 
 type LayerName = 'text' | 'ocr' | 'clip';
 function layers(row: Row): Record<LayerName, boolean | undefined> {
@@ -28,24 +35,36 @@ function layers(row: Row): Record<LayerName, boolean | undefined> {
   return {
     text: classify(row.text, defaults).hit,
     // Same as the engine: thumbnail text is judged with the card's text.
-    ocr: key in ocr ? classify(`${row.text} | ${ocr[key]!}`, defaults, { layer: 'ocr' }).hit : undefined,
+    ocr:
+      key in ocr
+        ? classify(`${row.text} | ${ocr[key]!}`, defaults, { layer: 'ocr' }).hit
+        : undefined,
     clip: key in clip ? clip[key]! >= clipThreshold : undefined,
   };
 }
 
-interface Score { tp: number; fn: number; fp: number; tn: number }
+interface Score {
+  tp: number;
+  fn: number;
+  fp: number;
+  tn: number;
+}
 const empty = (): Score => ({ tp: 0, fn: 0, fp: 0, tn: 0 });
 function tally(score: Score, label: number, hit: boolean) {
   if (label) score[hit ? 'tp' : 'fn']++;
   else score[hit ? 'fp' : 'tn']++;
 }
-const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(1)}%` : 'n/a');
+const pct = (a: number, b: number) =>
+  b ? `${((100 * a) / b).toFixed(1)}%` : 'n/a';
 const recall = (s: Score) => pct(s.tp, s.tp + s.fn);
 const fpr = (s: Score) => pct(s.fp, s.fp + s.tn);
 
 function evaluate(rows: Row[]) {
   const byLayer: Record<string, Score> = {
-    text: empty(), ocr: empty(), clip: empty(), combined: empty(),
+    text: empty(),
+    ocr: empty(),
+    clip: empty(),
+    combined: empty(),
   };
   const byGroup = new Map<string, Score>();
   const misses: string[] = [];
@@ -53,7 +72,8 @@ function evaluate(rows: Row[]) {
   for (const row of rows) {
     const result = layers(row);
     for (const name of ['text', 'ocr', 'clip'] as const)
-      if (result[name] !== undefined) tally(byLayer[name]!, row.label, result[name]!);
+      if (result[name] !== undefined)
+        tally(byLayer[name]!, row.label, result[name]!);
     // Visual-only rows use placeholder art, which CLIP cannot meaningfully
     // recognise; they are reported separately and left out of "combined".
     if (row.carrier === 'visual') continue;
@@ -63,7 +83,10 @@ function evaluate(rows: Row[]) {
       if (!byGroup.has(group)) byGroup.set(group, empty());
       tally(byGroup.get(group)!, row.label, hit);
     }
-    if (row.label && !hit) misses.push(`${row.id ?? ''} ${row.text}${row.thumb ? ` [thumb: ${row.thumb.text || row.thumb.scene}]` : ''}`);
+    if (row.label && !hit)
+      misses.push(
+        `${row.id ?? ''} ${row.text}${row.thumb ? ` [thumb: ${row.thumb.text || row.thumb.scene}]` : ''}`,
+      );
     if (!row.label && hit) falsePositives.push(`${row.id ?? ''} ${row.text}`);
   }
   return { byLayer, byGroup, misses, falsePositives };
@@ -78,10 +101,14 @@ for (const [title, rows] of [
   const { byLayer, byGroup, misses, falsePositives } = evaluate(rows);
   const visual = rows.filter((r) => r.carrier === 'visual');
   lines.push(`## ${title} (${rows.length} examples)`, '');
-  lines.push('| Layer | Positives scored | Recall | Negatives scored | False positives |');
+  lines.push(
+    '| Layer | Positives scored | Recall | Negatives scored | False positives |',
+  );
   lines.push('| --- | ---: | ---: | ---: | ---: |');
   for (const [name, s] of Object.entries(byLayer))
-    lines.push(`| ${name} | ${s.tp + s.fn} | ${recall(s)} | ${s.fp + s.tn} | ${fpr(s)} |`);
+    lines.push(
+      `| ${name} | ${s.tp + s.fn} | ${recall(s)} | ${s.fp + s.tn} | ${fpr(s)} |`,
+    );
   if (visual.length) {
     const caught = visual.filter((r) => layers(r).clip).length;
     lines.push(
@@ -94,8 +121,17 @@ for (const [title, rows] of [
   lines.push('', '| Group | Recall | FP rate |', '| --- | ---: | ---: |');
   for (const [group, s] of [...byGroup].sort())
     lines.push(`| ${group} | ${recall(s)} | ${fpr(s)} |`);
-  lines.push('', `Misses (${misses.length}):`, ...misses.slice(0, 40).map((m) => `- ${m}`));
-  lines.push('', `False positives (${falsePositives.length}):`, ...falsePositives.slice(0, 40).map((m) => `- ${m}`), '');
+  lines.push(
+    '',
+    `Misses (${misses.length}):`,
+    ...misses.slice(0, 40).map((m) => `- ${m}`),
+  );
+  lines.push(
+    '',
+    `False positives (${falsePositives.length}):`,
+    ...falsePositives.slice(0, 40).map((m) => `- ${m}`),
+    '',
+  );
 }
 const report = lines.join('\n');
 writeFileSync('tests/eval/report.md', report);

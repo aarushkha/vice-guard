@@ -14,7 +14,9 @@ export interface Verdict {
 const joined = (list: lex.Phrase[]) => list.map((p) => ` ${p.join(' ')} `);
 const lists = {
   unique: joined(lex.uniqueNames),
-  weak: joined(lex.weakNames.filter((p) => p[0] !== 'jason' && p[0] !== 'lucia')),
+  weak: joined(
+    lex.weakNames.filter((p) => p[0] !== 'jason' && p[0] !== 'lucia'),
+  ),
   other: joined(lex.otherTitles),
   recent: joined(lex.recentSignals),
   recentNoDate: joined(
@@ -29,7 +31,10 @@ const lists = {
   ),
   gameNotPlace: joined(
     lex.gameSignals.filter(
-      (p) => !['gta', 'grand theft auto', 'rockstar', 'vice city'].includes(p.join(' ')),
+      (p) =>
+        !['gta', 'grand theft auto', 'rockstar', 'vice city'].includes(
+          p.join(' '),
+        ),
     ),
   ),
   car: joined(lex.carSignals),
@@ -40,9 +45,11 @@ const lists = {
   strong: joined(lex.strong),
   moderate: joined(lex.moderate),
   safety: joined(lex.safetyLabels),
-  newNames: joined(lex.recentSignals.filter((p) =>
-    ['jason', 'lucia', 'leonida', 'duval', 'camino'].includes(p.join(' ')),
-  )),
+  newNames: joined(
+    lex.recentSignals.filter((p) =>
+      ['jason', 'lucia', 'leonida', 'duval', 'camino'].includes(p.join(' ')),
+    ),
+  ),
   newStrong: [' 2025 ', ' 2026 ', ' 2027 ', ' trailer 2 ', ' trailer 3 '],
 };
 
@@ -59,9 +66,18 @@ const fuzzyLookup = createFuzzyIndex(
 
 // Multi-word names written as one word: "VICECITY", "#LeonidaKeys".
 const gluedPhrases = new Map<string, string[]>(
-  [...lex.uniqueNames, ...lex.weakNames, ...lex.recentSignals, ...lex.storyWords]
+  [
+    ...lex.uniqueNames,
+    ...lex.weakNames,
+    ...lex.recentSignals,
+    ...lex.storyWords,
+  ]
     .filter((phrase) => phrase.length > 1)
-    .concat([['vice', 'city'], ['grand', 'theft', 'auto'], ['rockstar', 'game']])
+    .concat([
+      ['vice', 'city'],
+      ['grand', 'theft', 'auto'],
+      ['rockstar', 'game'],
+    ])
     .map((phrase) => [phrase.join(''), phrase]),
 );
 // Tesseract often reads a stylised "6" as G, b or 61 next to "GTA".
@@ -175,8 +191,18 @@ function contextRule(words: string[], text: string): string | undefined {
     if (upcoming || has(lists.recent) || has(lists.story)) return 'gta-recent';
   }
 
+  // "(that aren't from Rockstar)", "non-Rockstar", "not by Rockstar".
+  const negated = (i: number) =>
+    words
+      .slice(Math.max(0, i - 3), i)
+      .some((w) =>
+        ['not', 'non', 'aren', 'isn', 'without', 'except', 'besides'].includes(
+          w,
+        ),
+      );
+  const rockstarAt = words.flatMap((w, i) => (w === 'rockstar' ? [i] : []));
   if (
-    words.includes('rockstar') &&
+    rockstarAt.some((i) => !negated(i)) &&
     !blockedByOtherGame &&
     !(has(lists.rockstarElsewhere) && !has(lists.gameOnly))
   ) {
@@ -199,7 +225,11 @@ export function classify(
 ): Verdict {
   if (!settings.enabled) return { hit: false };
   if (options.blockedSource)
-    return { hit: true, rule: `account:${options.blockedSource}`, layer: 'channel' };
+    return {
+      hit: true,
+      rule: `account:${options.blockedSource}`,
+      layer: 'channel',
+    };
   const words = canonicalTokens(input, options.layer === 'ocr');
   const text = ` ${words.join(' ')} `;
   const rule = contextRule(words, text);
@@ -215,7 +245,8 @@ export function classify(
     return verdict(`${rule}+keyword`);
   if (settings.mode === 'strict' && !settings.spoilerFree) return verdict(rule);
   let unlabeled = text;
-  for (const label of lists.safety) unlabeled = unlabeled.replaceAll(label, ' ');
+  for (const label of lists.safety)
+    unlabeled = unlabeled.replaceAll(label, ' ');
   if (lists.strong.some((phrase) => unlabeled.includes(phrase)))
     return verdict(`${rule}+spoiler`);
   if (settings.mode === 'light' || settings.spoilerFree) return { hit: false };

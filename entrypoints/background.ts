@@ -4,9 +4,18 @@ import { pruneAudit, type AuditEntry } from '../lib/audit';
 import { learn } from '../lib/channels';
 import type { ImageResult } from '../lib/engine/engine';
 import { createImageCache } from '../lib/image-cache';
-import type { ContentMessage, EngineStatus, OffscreenMessage } from '../lib/messages';
+import type {
+  ContentMessage,
+  EngineStatus,
+  OffscreenMessage,
+} from '../lib/messages';
 import { defaults, type Settings } from '../lib/settings';
-import { readBlocklist, readSettings, saveBlocklist, watchStorage } from '../lib/storage';
+import {
+  readBlocklist,
+  readSettings,
+  saveBlocklist,
+  watchStorage,
+} from '../lib/storage';
 
 interface TabState {
   count: number;
@@ -22,6 +31,7 @@ export default defineBackground(() => {
   watchStorage((change) => {
     if (!change.settings) return;
     settings = change.settings;
+    warm(settings);
     for (const tabId of tabs.keys()) render(tabId);
   });
 
@@ -38,7 +48,10 @@ export default defineBackground(() => {
           : '';
     void browser.action.setBadgeText({ tabId, text }).catch(() => undefined);
     void browser.action
-      .setBadgeBackgroundColor({ tabId, color: state.broken ? '#d93025' : '#5f6368' })
+      .setBadgeBackgroundColor({
+        tabId,
+        color: state.broken ? '#d93025' : '#5f6368',
+      })
       .catch(() => undefined);
     void browser.action
       .setTitle({
@@ -68,7 +81,8 @@ export default defineBackground(() => {
       await browser.offscreen.createDocument({
         url: 'offscreen.html',
         reasons: ['WORKERS' as Browser.offscreen.Reason],
-        justification: 'Runs the local OCR and image models off the page main thread.',
+        justification:
+          'Runs the local OCR and image models off the page main thread.',
       });
     })().catch((error: unknown) => {
       offscreen = undefined;
@@ -77,7 +91,27 @@ export default defineBackground(() => {
     return offscreen;
   }
 
-  async function analyze(url: string): Promise<ImageResult> {
+  // Load OCR and CLIP as soon as the worker starts, not on the first
+  // thumbnail, so model start-up never lands on a card the user is waiting on.
+  const warm = (value: Settings) => {
+    if (value.enabled && value.imageLayer)
+      void ensureOffscreen().catch(() => undefined);
+  };
+  void readSettings().then(warm);
+  browser.runtime.onStartup.addListener(() => void readSettings().then(warm));
+  browser.runtime.onInstalled.addListener(() => void readSettings().then(warm));
+
+  // One offscreen request per URL, however many cards or tabs show it.
+  const inflight = new Map<string, Promise<ImageResult>>();
+  function analyze(url: string): Promise<ImageResult> {
+    let request = inflight.get(url);
+    if (!request) {
+      request = analyzeOnce(url).finally(() => inflight.delete(url));
+      inflight.set(url, request);
+    }
+    return request;
+  }
+  async function analyzeOnce(url: string): Promise<ImageResult> {
     const cached = await cache.get(url);
     if (cached) return cached;
     await ensureOffscreen();
@@ -92,8 +126,15 @@ export default defineBackground(() => {
   }
 
   browser.runtime.onMessage.addListener((raw, sender, sendResponse) => {
-    const message = raw as ContentMessage | { type: 'vg:engine'; status: EngineStatus } | { type: 'vg:status' };
-    if ('target' in (raw as object) && (raw as { target: string }).target === 'offscreen') return;
+    const message = raw as
+      | ContentMessage
+      | { type: 'vg:engine'; status: EngineStatus }
+      | { type: 'vg:status' };
+    if (
+      'target' in (raw as object) &&
+      (raw as { target: string }).target === 'offscreen'
+    )
+      return;
     if (message.type === 'vg:engine') {
       engineStatus = message.status;
       return;
@@ -108,11 +149,27 @@ export default defineBackground(() => {
         .catch((error: unknown) => sendResponse({ error: String(error) }));
       return true;
     }
+    if (message.type === 'vg:prioritize') {
+      const urls = message.urls.filter((url) => inflight.has(url));
+      if (urls.length)
+        void browser.runtime
+          .sendMessage({
+            target: 'offscreen',
+            type: 'vg:prioritize',
+            urls,
+          } satisfies OffscreenMessage)
+          .catch(() => undefined);
+      return;
+    }
     if (message.type === 'vg:audit') {
       enqueue(async () => {
         const stored = await browser.storage.local.get('audit');
-        const audit = Array.isArray(stored.audit) ? (stored.audit as AuditEntry[]) : [];
-        await browser.storage.local.set({ audit: pruneAudit([...audit, ...message.entries]) });
+        const audit = Array.isArray(stored.audit)
+          ? (stored.audit as AuditEntry[])
+          : [];
+        await browser.storage.local.set({
+          audit: pruneAudit([...audit, ...message.entries]),
+        });
       });
       return;
     }
@@ -129,7 +186,8 @@ export default defineBackground(() => {
     const state = tabs.get(tabId) ?? { count: 0 };
     tabs.set(tabId, state);
     if (message.type === 'vg:count') state.count = message.count;
-    if (message.type === 'vg:health') state.broken = message.broken ? message.site : undefined;
+    if (message.type === 'vg:health')
+      state.broken = message.broken ? message.site : undefined;
     render(tabId);
   });
   browser.tabs.onRemoved.addListener((tabId) => tabs.delete(tabId));
@@ -138,6 +196,8 @@ export default defineBackground(() => {
   enqueue(async () => {
     const stored = await browser.storage.local.get('audit');
     if (Array.isArray(stored.audit))
-      await browser.storage.local.set({ audit: pruneAudit(stored.audit as AuditEntry[]) });
+      await browser.storage.local.set({
+        audit: pruneAudit(stored.audit as AuditEntry[]),
+      });
   });
 });

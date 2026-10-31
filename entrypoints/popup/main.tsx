@@ -4,7 +4,12 @@ import { browser } from 'wxt/browser';
 import type { AuditEntry } from '../../lib/audit';
 import type { Blocklist, ChannelEntry } from '../../lib/channels';
 import type { EngineStatus } from '../../lib/messages';
-import { defaults, parseSettings, type Mode, type Settings } from '../../lib/settings';
+import {
+  defaults,
+  parseSettings,
+  type Mode,
+  type Settings,
+} from '../../lib/settings';
 import {
   readAudit,
   readBlocklist,
@@ -17,7 +22,11 @@ import './style.css';
 
 const modes: { value: Mode; title: string; detail: string }[] = [
   { value: 'light', title: 'Light', detail: 'Explicit spoilers only' },
-  { value: 'balanced', title: 'Balanced', detail: 'Characters, story and gameplay' },
+  {
+    value: 'balanced',
+    title: 'Balanced',
+    detail: 'Characters, story and gameplay',
+  },
   { value: 'strict', title: 'Strict', detail: 'All GTA 6 mentions' },
 ];
 type Tab = 'settings' | 'blocklist' | 'log';
@@ -46,18 +55,27 @@ function Toggle(props: {
   );
 }
 
-function SettingsTab({ ready, settings, update }: {
+function SettingsTab({
+  ready,
+  settings,
+  update,
+}: {
   ready: boolean;
   settings: Settings;
   update(patch: Partial<Settings>): void;
 }) {
   const [keywordText, setKeywordText] = useState(settings.keywords.join('\n'));
   const [engine, setEngine] = useState<EngineStatus>();
-  useEffect(() => setKeywordText(settings.keywords.join('\n')), [settings.keywords]);
+  useEffect(
+    () => setKeywordText(settings.keywords.join('\n')),
+    [settings.keywords],
+  );
   useEffect(() => {
     void browser.runtime
       .sendMessage({ type: 'vg:status' })
-      .then((value) => setEngine((value as { engine: EngineStatus } | undefined)?.engine))
+      .then((value) =>
+        setEngine((value as { engine: EngineStatus } | undefined)?.engine),
+      )
       .catch(() => undefined);
   }, []);
   return (
@@ -74,7 +92,9 @@ function SettingsTab({ ready, settings, update }: {
             />
             <span>
               {mode.title}
-              {mode.value === 'strict' && <span className="recommendation">Recommended</span>}
+              {mode.value === 'strict' && (
+                <span className="recommendation">Recommended</span>
+              )}
               <small>{mode.detail}</small>
             </span>
           </label>
@@ -87,10 +107,11 @@ function SettingsTab({ ready, settings, update }: {
         onChange={(imageLayer) => update({ imageLayer })}
       >
         Reads thumbnail text and recognises GTA 6 imagery on this device. Cards
-        wait up to 1.5 s for a verdict and are hidden if none arrives.
+        stay blank until checked and are removed if no verdict arrives in 10 s.
         {engine && settings.imageLayer && (
           <span className="engine">
-            {' '}OCR: {engine.ocr} · CLIP: {engine.clip}
+            {' '}
+            OCR: {engine.ocr} · CLIP: {engine.clip}
           </span>
         )}
       </Toggle>
@@ -106,7 +127,9 @@ function SettingsTab({ ready, settings, update }: {
           step={0.05}
           disabled={!ready || !settings.imageLayer}
           value={settings.clipThreshold}
-          onChange={(event) => update({ clipThreshold: Number(event.target.value) })}
+          onChange={(event) =>
+            update({ clipThreshold: Number(event.target.value) })
+          }
         />
         <p>Lower hides more images (more false positives).</p>
       </section>
@@ -122,8 +145,8 @@ function SettingsTab({ ready, settings, update }: {
         checked={settings.spoilerFree}
         onChange={(spoilerFree) => update({ spoilerFree })}
       >
-        Allow GTA 6 titles without explicit spoiler signals. Thumbnails can still
-        contain spoilers.
+        Allow GTA 6 titles without explicit spoiler signals. Thumbnails can
+        still contain spoilers.
       </Toggle>
       <section>
         <label htmlFor="keywords">Your keywords</label>
@@ -136,7 +159,10 @@ function SettingsTab({ ready, settings, update }: {
           value={keywordText}
           onChange={(event) => setKeywordText(event.target.value)}
         />
-        <button disabled={!ready} onClick={() => update({ keywords: keywordText.split('\n') })}>
+        <button
+          disabled={!ready}
+          onClick={() => update({ keywords: keywordText.split('\n') })}
+        >
           Save keywords
         </button>
       </section>
@@ -150,29 +176,60 @@ function BlocklistTab() {
   const [adding, setAdding] = useState('');
   useEffect(() => {
     void readBlocklist().then(setList);
-    return watchStorage((change) => change.channels && setList(change.channels));
+    return watchStorage(
+      (change) => change.channels && setList(change.channels),
+    );
   }, []);
   const entries = useMemo(
     () =>
       Object.values(list)
         .filter((entry) => entry.blocked || entry.origin === 'user')
-        .filter((entry) => `${entry.name} ${entry.key}`.toLowerCase().includes(filter.toLowerCase()))
-        .sort((a, b) => Number(b.blocked) - Number(a.blocked) || a.name.localeCompare(b.name)),
+        .filter((entry) =>
+          `${entry.name} ${entry.key}`
+            .toLowerCase()
+            .includes(filter.toLowerCase()),
+        )
+        .sort(
+          (a, b) =>
+            Number(b.blocked) - Number(a.blocked) ||
+            a.name.localeCompare(b.name),
+        ),
     [list, filter],
   );
   function set(entry: ChannelEntry, blocked: boolean) {
-    const next = { ...list, [entry.key]: { ...entry, blocked, origin: 'user' as const, updated: Date.now() } };
+    const next = {
+      ...list,
+      [entry.key]: {
+        ...entry,
+        blocked,
+        origin: 'user' as const,
+        updated: Date.now(),
+      },
+    };
     setList(next);
     void saveBlocklist(next);
   }
   function add() {
     const value = adding.trim();
-    const match =
-      /^(?:r\/)([\w]+)$/i.exec(value) ? `reddit:r/${value.slice(2).toLowerCase()}` :
-      /^@[\w.-]+$/.test(value) ? `youtube:${value.toLowerCase()}` :
-      /^x:@\w{1,15}$/i.test(value) ? value.toLowerCase() : undefined;
+    const match = /^(?:r\/)([\w]+)$/i.exec(value)
+      ? `reddit:r/${value.slice(2).toLowerCase()}`
+      : /^@[\w.-]+$/.test(value)
+        ? `youtube:${value.toLowerCase()}`
+        : /^x:@\w{1,15}$/i.test(value)
+          ? value.toLowerCase()
+          : undefined;
     if (!match) return;
-    set({ key: match, name: value, blocked: true, origin: 'user', history: [], updated: 0 }, true);
+    set(
+      {
+        key: match,
+        name: value,
+        blocked: true,
+        origin: 'user',
+        history: [],
+        updated: 0,
+      },
+      true,
+    );
     setAdding('');
   }
   return (
@@ -223,7 +280,8 @@ function LogTab() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [site, setSite] = useState('all');
   useEffect(() => {
-    const load = () => void readAudit().then((value) => setEntries(value.reverse()));
+    const load = () =>
+      void readAudit().then((value) => setEntries(value.reverse()));
     load();
     const listener = (changes: Record<string, unknown>, area: string) =>
       area === 'local' && 'audit' in changes && load();
@@ -231,12 +289,18 @@ function LogTab() {
     return () => browser.storage.onChanged.removeListener(listener);
   }, []);
   const sites = [...new Set(entries.map((entry) => entry.site))];
-  const shown = entries.filter((entry) => site === 'all' || entry.site === site).slice(0, 300);
+  const shown = entries
+    .filter((entry) => site === 'all' || entry.site === site)
+    .slice(0, 300);
   return (
     <>
       <p>Everything hidden in the last 7 days, stored only on this device.</p>
       <div className="row">
-        <select aria-label="Filter log by site" value={site} onChange={(event) => setSite(event.target.value)}>
+        <select
+          aria-label="Filter log by site"
+          value={site}
+          onChange={(event) => setSite(event.target.value)}
+        >
           <option value="all">All sites ({entries.length})</option>
           {sites.map((value) => (
             <option key={value} value={value}>
@@ -245,7 +309,11 @@ function LogTab() {
           ))}
         </select>
         <button
-          onClick={() => void browser.storage.local.set({ audit: [] }).then(() => setEntries([]))}
+          onClick={() =>
+            void browser.storage.local
+              .set({ audit: [] })
+              .then(() => setEntries([]))
+          }
         >
           Clear log
         </button>
@@ -282,7 +350,9 @@ function App() {
         setSettings(value);
         setReady(true);
       })
-      .catch(() => setMessage('Could not load settings. Reopen the extension to retry.'));
+      .catch(() =>
+        setMessage('Could not load settings. Reopen the extension to retry.'),
+      );
   }, []);
 
   function update(patch: Partial<Settings>) {
@@ -319,11 +389,17 @@ function App() {
             aria-selected={tab === name}
             onClick={() => setTab(name)}
           >
-            {name === 'settings' ? 'Settings' : name === 'blocklist' ? 'Blocklist' : 'Hidden log'}
+            {name === 'settings'
+              ? 'Settings'
+              : name === 'blocklist'
+                ? 'Blocklist'
+                : 'Hidden log'}
           </button>
         ))}
       </nav>
-      {tab === 'settings' && <SettingsTab ready={ready} settings={settings} update={update} />}
+      {tab === 'settings' && (
+        <SettingsTab ready={ready} settings={settings} update={update} />
+      )}
       {tab === 'blocklist' && <BlocklistTab />}
       {tab === 'log' && <LogTab />}
       <footer>

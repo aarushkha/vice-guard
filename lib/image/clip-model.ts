@@ -20,7 +20,9 @@ export async function loadClip(base: string, prompts: PromptEmbeddings) {
   const wasm = env.backends.onnx.wasm;
   if (wasm) {
     wasm.wasmPaths = `${base}ort/`;
-    // Offscreen documents are not cross-origin isolated, so no shared memory.
+    // Single-threaded: offscreen documents are not cross-origin isolated, and
+    // measured on 4 cores, two single-threaded workers out-run threaded ones
+    // because OCR competes for the same cores.
     wasm.numThreads = 1;
     wasm.proxy = false;
   }

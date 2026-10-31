@@ -20,7 +20,9 @@ export default defineConfig({
           // CPU-only onnxruntime: a 14 MB wasm instead of the 28 MB WebGPU one,
           // loaded from public/ort rather than bundled a second time.
           find: /^onnxruntime-web(\/webgpu)?$/,
-          replacement: resolve('node_modules/onnxruntime-web/dist/ort.wasm.min.mjs'),
+          replacement: resolve(
+            'node_modules/onnxruntime-web/dist/ort.wasm.min.mjs',
+          ),
         },
       ],
     },
@@ -32,6 +34,12 @@ export default defineConfig({
       'Silently removes GTA VI spoilers from your feeds. Local text, OCR and image matching; nothing leaves your device.',
     minimum_chrome_version: '116',
     permissions: ['storage', 'offscreen'],
+    // Tesseract and onnxruntime are WebAssembly; MV3 blocks compiling it
+    // unless allowed. Scripts still load only from the package ('self').
+    content_security_policy: {
+      extension_pages:
+        "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+    },
     // Content scripts read pages; the offscreen document fetches thumbnails
     // the page already shows so they can be analysed locally.
     host_permissions: ['<all_urls>'],

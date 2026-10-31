@@ -14,11 +14,22 @@ interface RecognizeData {
 export function confidentText(data: RecognizeData, minConfidence = 0): string {
   if (!data.blocks) return data.text;
   return data.blocks
-    .flatMap((block) => block.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)))
+    .flatMap((block) =>
+      block.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)),
+    )
     .filter((word) => word.confidence >= minConfidence)
     .map((word) => word.text)
     .join(' ');
 }
+
+/**
+ * Thumbnails are upscaled this much before OCR. Measured on the eval set
+ * (480x360 thumbnails): 1.5x reads more than 2x (95.5% vs 94.0% recall with
+ * the title) at 56% of the pixels.
+ */
+export const OCR_SCALE = 1.5;
+/** Longest side after scaling, so large images do not cost more. */
+export const OCR_MAX_SIDE = 900;
 
 /** Tesseract options shared by the extension and the eval. */
 export const recognizeOptions = { blocks: true } as const;
@@ -33,13 +44,14 @@ export function brightTextMask(
   rgba: ArrayLike<number>,
   width: number,
   height: number,
-): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(width * height * 4);
+): Uint8ClampedArray<ArrayBuffer> {
+  const out = new Uint8ClampedArray(new ArrayBuffer(width * height * 4));
   for (let i = 0; i < width * height * 4; i += 4) {
     const r = rgba[i]!;
     const g = rgba[i + 1]!;
     const b = rgba[i + 2]!;
-    const text = (r > 200 && g > 200 && b > 200) || (r > 200 && g > 190 && b < 110);
+    const text =
+      (r > 200 && g > 200 && b > 200) || (r > 200 && g > 190 && b < 110);
     const value = text ? 0 : 255;
     out[i] = out[i + 1] = out[i + 2] = value;
     out[i + 3] = 255;

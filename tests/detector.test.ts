@@ -95,3 +95,14 @@ describe('local spoiler matching', () => {
     ).toHaveLength(200);
   });
 });
+
+describe('Rockstar negation', () => {
+  it.each([
+    "The 10 best open world games of the decade (that aren't from Rockstar) Continue reading the story",
+    'Great non-Rockstar story games',
+  ])('keeps %s', (title) => expect(detect(title, defaults)).toBe(false));
+  it('still blocks Rockstar story coverage', () =>
+    expect(detect("Rockstar's new story trailer is here", defaults)).toBe(
+      true,
+    ));
+});

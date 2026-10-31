@@ -23,7 +23,10 @@ export default defineContentScript({
     // Hide candidates before the page paints anything; settings load after.
     const css = engineCss(site);
     let style: HTMLStyleElement | undefined = injectStyle(document, css);
-    let [settings, blocklist] = await Promise.all([readSettings(), readBlocklist()]);
+    let [settings, blocklist] = await Promise.all([
+      readSettings(),
+      readBlocklist(),
+    ]);
     if (ctx.isInvalid) return style.remove();
     if (!settings.enabled) style = (style.remove(), undefined);
 
@@ -44,19 +47,28 @@ export default defineContentScript({
     void send({ type: 'vg:count', count: 0 });
     const engine = startEngine(site, settings, {
       image: (url) =>
-        browser.runtime.sendMessage({ type: 'vg:image', url } satisfies ContentMessage) as Promise<ImageResult>,
+        browser.runtime.sendMessage({
+          type: 'vg:image',
+          url,
+        } satisfies ContentMessage) as Promise<ImageResult>,
+      prioritize: (urls) => void send({ type: 'vg:prioritize', urls }),
       isBlocked: (source) => blocklist[source.key]?.blocked === true,
       onHidden: (entry) =>
         audit.push({ ...entry, time: Date.now(), page: location.hostname }),
       onCount: (count) => void send({ type: 'vg:count', count }),
       onSourceSeen(source, title, hit) {
         let entry = sources.get(source.key);
-        if (!entry) sources.set(source.key, (entry = { source, hits: [], titles: new Set() }));
+        if (!entry)
+          sources.set(
+            source.key,
+            (entry = { source, hits: [], titles: new Set() }),
+          );
         if (entry.titles.has(title)) return;
         entry.titles.add(title);
         entry.hits.push(hit ? 1 : 0);
       },
-      onHealth: (broken) => void send({ type: 'vg:health', broken, site: site.id }),
+      onHealth: (broken) =>
+        void send({ type: 'vg:health', broken, site: site.id }),
     });
 
     const unwatch = watchStorage((change) => {
