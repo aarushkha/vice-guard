@@ -4,7 +4,25 @@ A local GTA 6 spoiler filter for Chromium and Firefox. It hides matching posts, 
 
 Built with TypeScript, WXT, and React. No AI, external services, analytics, or remote filter subscriptions.
 
-## Install from source
+## Install
+
+### Chrome, Brave, and Edge
+
+1. [Download Vice Guard](https://github.com/iwojachimowski/vice-guard/releases/latest/download/vice-guard-chrome.zip) and extract the ZIP into a folder you'll keep.
+2. Open your browser's **Extensions** page (`chrome://extensions`, `brave://extensions`, or `edge://extensions`) and enable **Developer mode**.
+3. Click **Load unpacked**, select the extracted folder containing `manifest.json`, then refresh your open website tabs.
+
+Keep the extracted folder in place: the browser loads the extension from it. To update, replace its files with the new download, click **Reload** on the extension, and refresh your tabs.
+
+### Firefox (temporary installation)
+
+1. [Download the Firefox ZIP](https://github.com/iwojachimowski/vice-guard/releases/latest/download/vice-guard-firefox.zip) and extract it.
+2. Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and select the extracted `manifest.json`.
+3. Refresh your website tabs. Firefox removes temporary add-ons when it closes; permanent installation requires a signed add-on.
+
+All downloads are on the [Releases page](https://github.com/iwojachimowski/vice-guard/releases). The prebuilt ZIPs require no development tools.
+
+### Build from source
 
 Use Node.js 24.15 or newer in the 24.x release line and npm. The supported Node versions are listed in `package.json`.
 

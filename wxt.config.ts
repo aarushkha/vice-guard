@@ -3,6 +3,7 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   zip: {
+    artifactTemplate: 'vice-guard-{{browser}}.zip',
     excludeSources: [
       'test-results/**',
       'playwright-report/**',
