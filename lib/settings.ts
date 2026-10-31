@@ -3,35 +3,40 @@ export interface Settings {
   enabled: boolean;
   mode: Mode;
   spoilerFree: boolean;
-  allowReveal: boolean;
   keywords: string[];
+  /** Show the hidden-item count on the toolbar icon. */
+  showBadge: boolean;
+  /** Run thumbnails through local OCR and CLIP. */
+  imageLayer: boolean;
+  /** CLIP probability (0-1) at or above which an image counts as GTA 6. */
+  clipThreshold: number;
 }
 
 export const defaults: Settings = {
   enabled: true,
   mode: 'strict',
   spoilerFree: false,
-  allowReveal: true,
   keywords: [],
+  showBadge: true,
+  imageLayer: true,
+  clipThreshold: 0.6,
 };
+
+const bool = (value: unknown, fallback: boolean) =>
+  typeof value === 'boolean' ? value : fallback;
 
 export function parseSettings(value: unknown): Settings {
   const data =
     value && typeof value === 'object'
       ? (value as Record<string, unknown>)
       : {};
+  const threshold = Number(data.clipThreshold);
   return {
-    enabled:
-      typeof data.enabled === 'boolean' ? data.enabled : defaults.enabled,
+    enabled: bool(data.enabled, defaults.enabled),
     mode: ['light', 'balanced', 'strict'].includes(String(data.mode))
       ? (data.mode as Mode)
       : defaults.mode,
-    spoilerFree:
-      typeof data.spoilerFree === 'boolean' ? data.spoilerFree : false,
-    allowReveal:
-      typeof data.allowReveal === 'boolean'
-        ? data.allowReveal
-        : defaults.allowReveal,
+    spoilerFree: bool(data.spoilerFree, false),
     keywords: Array.isArray(data.keywords)
       ? [
           ...new Set(
@@ -42,5 +47,11 @@ export function parseSettings(value: unknown): Settings {
           ),
         ].slice(0, 200)
       : [],
+    showBadge: bool(data.showBadge, defaults.showBadge),
+    imageLayer: bool(data.imageLayer, defaults.imageLayer),
+    clipThreshold:
+      Number.isFinite(threshold) && threshold > 0 && threshold < 1
+        ? threshold
+        : defaults.clipThreshold,
   };
 }

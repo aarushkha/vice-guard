@@ -12,3 +12,9 @@ test-results/
 .DS_Store
 .env*
 !.env.example
+
+.model-cache/
+public/models/
+public/ort/
+public/tesseract/
+tests/eval/.cache/
