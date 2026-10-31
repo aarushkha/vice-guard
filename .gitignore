@@ -1,0 +1,14 @@
+node_modules/
+.wxt/
+.output/
+coverage/
+playwright-report/
+test-results/
+.browser-cache/
+.codex/
+.agents/
+.aws/
+*.log
+.DS_Store
+.env*
+!.env.example

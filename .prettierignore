@@ -1,0 +1,7 @@
+node_modules
+.output
+.wxt
+.browser-cache
+test-results
+playwright-report
+package-lock.json
