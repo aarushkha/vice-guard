@@ -39,11 +39,11 @@ Reload website tabs after installing or updating the extension.
 
 ## Filtering
 
-| Mode                 | What it hides                                                                                      |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| Light                | Explicit spoiler signals: endings, deaths, plot twists, and similar terms                          |
-| Balanced (default)   | Light matches, plus character names, story and mission coverage, gameplay, map analysis, and leaks |
-| Strict (recommended) | All recognized GTA 6 mentions                                                                      |
+| Mode                          | What it hides                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| Light                         | Explicit spoiler signals: endings, deaths, plot twists, and similar terms                          |
+| Balanced                      | Light matches, plus character names, story and mission coverage, gameplay, map analysis, and leaks |
+| Strict (default, recommended) | All recognized GTA 6 mentions                                                                      |
 
 Ordinary posts need a GTA 6 context phrase in the same card, such as `GTA VI`, `GTA6`, or `Grand Theft Auto 6`. Jason or Lucia alone won't trigger a match. Matching normalizes case, accents, punctuation, full-width characters, and common invisible separators.
 

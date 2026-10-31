@@ -12,6 +12,8 @@ test('preferences persist and update open pages; reveal locks prevent accidental
     name: 'Enable spoiler protection',
   });
   const reveal = popup.getByRole('checkbox', { name: 'Allow click-to-reveal' });
+  await expect(popup.getByRole('radio', { name: /Strict/ })).toBeChecked();
+  await popup.getByRole('radio', { name: /Balanced/ }).check();
   await expect(page.locator('#spoiler')).toBeHidden();
   await expect(page.locator('#safe')).toBeVisible();
   await page.locator('[data-vice-guard-ui]').click();
@@ -32,6 +34,7 @@ test('preferences persist and update open pages; reveal locks prevent accidental
   await expect(popup.getByRole('status')).toHaveText('Saved.');
   await popup.reload();
   await expect(reveal).not.toBeChecked();
+  await expect(popup.getByRole('radio', { name: /Balanced/ })).toBeChecked();
   await expect(popup.getByLabel('Your keywords')).toHaveValue('cooking');
   await reveal.check();
   await page.locator('[data-vice-guard-ui]').click();

@@ -2,13 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { detect, normalize } from '../lib/detector';
 import { defaults, parseSettings } from '../lib/settings';
 
+const balanced = { ...defaults, mode: 'balanced' as const };
+
 describe('local spoiler matching', () => {
+  it('defaults new installs to Strict without overriding a saved mode', () => {
+    expect(parseSettings(null).mode).toBe('strict');
+    expect(parseSettings({ mode: 'balanced' }).mode).toBe('balanced');
+    expect(parseSettings({ mode: 'light' }).mode).toBe('light');
+    expect(detect('GTA 6 release date', defaults)).toBe(true);
+  });
   it.each([
     'GTA 6 - Analiza i Ciekawostki 4',
     'GTA 6: SZCZEGÓŁOWA ANALIZA MAPY',
     'Grand Theft Auto VI: An Extended Look',
   ])('treats %s as gameplay or story coverage in Balanced', (title) => {
-    expect(detect(title, defaults)).toBe(true);
+    expect(detect(title, balanced)).toBe(true);
     expect(detect(title, { ...defaults, mode: 'light' })).toBe(false);
     expect(detect(title, { ...defaults, spoilerFree: true })).toBe(false);
   });
@@ -31,10 +39,10 @@ describe('local spoiler matching', () => {
     'GTA 6 trailer reaction',
     'GTA 6 classical music',
   ])('allows %s', (title) => {
-    expect(detect(title, defaults)).toBe(false);
+    expect(detect(title, balanced)).toBe(false);
   });
   it('uses word boundaries and normalizes punctuation', () => {
-    expect(detect('GTA 6: Jasonville sightseeing', defaults)).toBe(false);
+    expect(detect('GTA 6: Jasonville sightseeing', balanced)).toBe(false);
     expect(normalize('  GＴＡ—VI: Lúcia! ')).toBe('gta vi lucia');
   });
   it('keeps light narrow and strict broad', () => {
@@ -64,7 +72,7 @@ describe('local spoiler matching', () => {
     expect(detect('Bank robbery in a movie', settings)).toBe(false);
   });
   it('treats custom phrases literally and honors the global switch', () => {
-    expect(detect('GTA 6 .*', { ...defaults, keywords: ['.*'] })).toBe(false);
+    expect(detect('GTA 6 .*', { ...balanced, keywords: ['.*'] })).toBe(false);
     expect(detect('GTA 6 ending', { ...defaults, enabled: false })).toBe(false);
   });
   it('repairs invalid stored preferences and bounds custom input', () => {

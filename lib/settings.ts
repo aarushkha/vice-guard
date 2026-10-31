@@ -9,7 +9,7 @@ export interface Settings {
 
 export const defaults: Settings = {
   enabled: true,
-  mode: 'balanced',
+  mode: 'strict',
   spoilerFree: false,
   allowReveal: true,
   keywords: [],
