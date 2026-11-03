@@ -416,9 +416,12 @@ function App() {
       <footer>
         <span role="status">{message}</span>
         Runs locally. No tracking or page data sent anywhere.
+        <span className="build">Build {__BUILD__}</span>
       </footer>
     </main>
   );
 }
+
+declare const __BUILD__: string;
 
 createRoot(document.getElementById('root')!).render(<App />);

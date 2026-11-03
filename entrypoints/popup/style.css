@@ -261,3 +261,9 @@ p + input {
     border-color: #444;
   }
 }
+footer .build {
+  display: block;
+  margin-top: 4px;
+  font-family: ui-monospace, monospace;
+  opacity: 0.7;
+}

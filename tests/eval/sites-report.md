@@ -13,16 +13,16 @@ Pages scroll one screen per 80 ms (far faster than a person) unless noted.
 
 | Page                                        | Cards |          Recall | False positives | Flashes | Grid gaps | First screen |                 Blank on screen | Timeout hides |   Time |
 | ------------------------------------------- | ----: | --------------: | --------------: | ------: | --------: | -----------: | ------------------------------: | ------------: | -----: |
-| youtube                                     |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.4 s | 257 cards: 284 / 2541 / 4224 ms |             0 | 38.1 s |
-| youtube-search                              |   164 |   97.8% (87/89) |     0.0% (0/75) |       0 |       n/a |        2.8 s | 105 cards: 226 / 1534 / 2697 ms |             0 | 20.8 s |
-| reddit                                      |   135 |  100.0% (79/79) |     0.0% (0/56) |       0 |       n/a |        0.2 s |                            none |             0 |  6.1 s |
-| x                                           |   118 |  100.0% (76/76) |     0.0% (0/42) |       0 |       n/a |        0.2 s |                            none |             0 |  5.6 s |
-| google                                      |   108 |  100.0% (60/60) |     0.0% (0/48) |       0 |       n/a |        0.2 s |                            none |             0 |  5.7 s |
-| google-news                                 |   120 |  100.0% (64/64) |     0.0% (0/56) |       0 |       n/a |        3.2 s |  55 cards: 220 / 2581 / 2965 ms |             0 | 13.6 s |
+| youtube                                     |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.6 s | 239 cards: 311 / 2782 / 4398 ms |             0 | 36.6 s |
+| youtube-search                              |   164 |   97.8% (87/89) |     0.0% (0/75) |       0 |       n/a |        3.1 s | 105 cards: 216 / 1516 / 3011 ms |             0 | 21.1 s |
+| reddit                                      |   135 |  100.0% (79/79) |     0.0% (0/56) |       0 |       n/a |        0.2 s |                            none |             0 |  6.2 s |
+| x                                           |   118 |  100.0% (76/76) |     0.0% (0/42) |       0 |       n/a |        0.1 s |                            none |             0 |  5.7 s |
+| google                                      |   108 |  100.0% (60/60) |     0.0% (0/48) |       0 |       n/a |        0.2 s |                            none |             0 |  5.8 s |
+| google-news                                 |   120 |  100.0% (64/64) |     0.0% (0/56) |       0 |       n/a |        0.2 s |  56 cards: 221 / 1515 / 1625 ms |             0 | 13.7 s |
 | article (tier 2)                            |    77 |  100.0% (44/44) |     0.0% (0/33) |       0 |       n/a |        0.2 s |                            none |             0 |  5.2 s |
-| youtube (one screen per second)             |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.5 s | 186 cards: 659 / 2799 / 4249 ms |             0 | 37.4 s |
-| youtube (one screen per 2.5 s)              |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.3 s |  57 cards: 780 / 3926 / 4108 ms |             0 | 77.2 s |
-| youtube (not waiting for image recognition) |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        2.3 s | 246 cards: 295 / 1164 / 2121 ms |             0 | 25.7 s |
+| youtube (one screen per second)             |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.3 s | 180 cards: 714 / 2432 / 4010 ms |             0 | 36.9 s |
+| youtube (one screen per 2.5 s)              |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.4 s |  60 cards: 817 / 3933 / 4105 ms |             0 | 77.4 s |
+| youtube (not waiting for image recognition) |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        2.5 s | 244 cards: 300 / 1111 / 2272 ms |             0 | 27.4 s |
 
 Hide reasons (audit log, includes timeout hides that were later undone):
 

@@ -1,5 +1,20 @@
+import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { defineConfig } from 'wxt';
+
+function buildStamp() {
+  let commit = 'unknown';
+  try {
+    commit = execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    // Not a git checkout (e.g. a source zip).
+  }
+  return `${commit} · built ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
@@ -14,6 +29,8 @@ export default defineConfig({
     ],
   },
   vite: () => ({
+    // Shown in the popup footer so it is clear which build Chrome loaded.
+    define: { __BUILD__: JSON.stringify(buildStamp()) },
     resolve: {
       alias: [
         {

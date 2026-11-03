@@ -33,7 +33,12 @@ export const OCR_MAX_SIDE = 900;
 
 /** Tesseract options shared by the extension and the eval. */
 export const recognizeOptions = { blocks: true } as const;
-export const ocrParameters = { user_defined_dpi: '300' } as const;
+export const ocrParameters = {
+  user_defined_dpi: '300',
+  // Tesseract writes debug notes ("Detected 14 diacritics") to stderr, which
+  // Chrome lists as extension errors. Send them nowhere.
+  debug_file: '/dev/null',
+} as const;
 
 /**
  * Thumbnail text is usually white or yellow with a dark outline. Painting
