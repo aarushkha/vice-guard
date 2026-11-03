@@ -22,3 +22,5 @@ tests/eval/.cache/
 tests/eval/sites-report.md
 # Your own screenshots for scoring CLIP; never committed
 tests/eval/images-real/
+# Written by npm run eval
+tests/eval/report.md
