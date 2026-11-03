@@ -30,3 +30,24 @@ describe('counter-only mutations', () => {
     expect(counterOnly(text(from, to))).toBe(false),
   );
 });
+
+import { namesOtherGame } from '../lib/match/matcher';
+
+describe('namesOtherGame (stops the image classifier alone hiding these)', () => {
+  it.each([
+    'GTA 5 funny moments',
+    'San Andreas | GTA SA',
+    'GTA IV ending',
+    'Red Dead 2 story',
+  ])('true for %s', (text) => expect(namesOtherGame(text)).toBe(true));
+  it.each([
+    'This changes everything',
+    'GTA 6 vs GTA 5',
+    'Leonida map vs San Andreas',
+    'watch till the end',
+  ])('false for %s', (text) => expect(namesOtherGame(text)).toBe(false));
+  it.each(['GilANS | GTAS', 'GTA1V | GTA1V'])(
+    'true for OCR misreading %s',
+    (text) => expect(namesOtherGame(text, true)).toBe(true),
+  );
+});

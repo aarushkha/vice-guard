@@ -5,5 +5,3 @@ node_modules
 test-results
 playwright-report
 package-lock.json
-# Written by npm run model
-lib/image/prompts.json

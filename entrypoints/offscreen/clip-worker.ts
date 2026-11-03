@@ -1,11 +1,11 @@
 import { loadClip } from '../../lib/image/clip-model';
-import type { PromptEmbeddings } from '../../lib/image/score';
-import prompts from '../../lib/image/prompts.json';
+import type { Classifier } from '../../lib/image/score';
+import classifier from '../../lib/image/classifier.json';
 
 // Runs CLIP in its own thread; requests are handled one at a time.
 const ready = loadClip(
   new URL('/', self.location.href).href,
-  prompts as PromptEmbeddings,
+  classifier as Classifier,
 );
 ready.then(
   () => self.postMessage({ type: 'ready' }),

@@ -1,12 +1,17 @@
 /**
- * Zero-shot CLIP scoring against prompt embeddings computed at build time
- * (scripts/clip-prompts.ts), so the text model never ships.
+ * GTA 6 probability from a CLIP image embedding: a logistic-regression
+ * classifier trained on image embeddings (scripts/train-clip.ts).
+ *
+ * It replaced zero-shot text prompts, which on held-out images caught 32% of
+ * GTA VI art at a 5% false-block rate against the classifier's 94%.
  */
-export interface PromptEmbeddings {
+export interface Classifier {
   model: string;
-  logitScale: number;
-  positive: { prompt: string; embedding: number[] }[];
-  negative: { prompt: string; embedding: number[] }[];
+  dtype: string;
+  /** Multiplies the dot product before the bias. */
+  scale: number;
+  weights: number[];
+  bias: number;
 }
 
 export function normalizeVector(vector: ArrayLike<number>): number[] {
@@ -16,50 +21,14 @@ export function normalizeVector(vector: ArrayLike<number>): number[] {
   return Array.from(vector, (value) => value / norm);
 }
 
-/** Probability mass the image puts on the GTA 6 prompts (0-1). */
+/** Probability (0-1) that the image shows GTA 6. */
 export function gtaProbability(
   imageEmbedding: ArrayLike<number>,
-  prompts: PromptEmbeddings,
+  classifier: Classifier,
 ): number {
   const image = normalizeVector(imageEmbedding);
-  const logits = [...prompts.positive, ...prompts.negative].map(
-    ({ embedding }) =>
-      prompts.logitScale *
-      embedding.reduce((sum, value, i) => sum + value * image[i]!, 0),
-  );
-  const max = Math.max(...logits);
-  const exp = logits.map((logit) => Math.exp(logit - max));
-  const total = exp.reduce((a, b) => a + b, 0);
-  return (
-    exp.slice(0, prompts.positive.length).reduce((a, b) => a + b, 0) / total
-  );
+  let dot = 0;
+  for (let i = 0; i < image.length; i++)
+    dot += image[i]! * classifier.weights[i]!;
+  return 1 / (1 + Math.exp(-(classifier.scale * dot + classifier.bias)));
 }
-
-export const positivePrompts = [
-  'a screenshot of Grand Theft Auto VI',
-  'a Grand Theft Auto VI trailer still',
-  'Vice City at night, neon lights, from the video game GTA 6',
-  'Jason and Lucia, the protagonists of GTA 6',
-  'GTA VI key art by Rockstar Games',
-  'a YouTube thumbnail about GTA 6',
-  'a sunny Leonida beach in the video game GTA 6',
-  'a GTA 6 gameplay screenshot with a car chase in Florida',
-];
-export const negativePrompts = [
-  'a screenshot of Grand Theft Auto V in Los Santos',
-  'a screenshot of Red Dead Redemption 2',
-  'a photo of Miami Beach',
-  'a photo of a real city at night',
-  'a screenshot of a video game',
-  'a YouTube thumbnail',
-  'a photo of a person',
-  'a cartoon or anime',
-  'text on a plain background',
-  'a screenshot of a website or app',
-  'a meme',
-  'a photo of food',
-  'a sports photo',
-  'a Minecraft or Fortnite screenshot',
-  'a photo of a car',
-  'a photo of nature',
-];

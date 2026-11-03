@@ -77,7 +77,9 @@ const pick = (site: string, carriers = ['text']) => [
 const baseFixtures: SiteFixture[] = [
   {
     name: 'youtube',
-    maxFalsePositiveRate: 0.1,
+    // CLIP reads "GTA" on placeholder thumbnails saying "GTA 5"; the
+    // other-game guard needs OCR to read the number, which it sometimes garbles.
+    maxFalsePositiveRate: 0.02,
     url: 'https://www.youtube.com/',
     examples: pick('youtube', ['text', 'ocr']),
     container: 'ytd-rich-grid-renderer > #contents',
@@ -97,7 +99,9 @@ const baseFixtures: SiteFixture[] = [
   },
   {
     name: 'youtube-search',
-    maxFalsePositiveRate: 0.1,
+    // CLIP reads "GTA" on placeholder thumbnails saying "GTA 5"; the
+    // other-game guard needs OCR to read the number, which it sometimes garbles.
+    maxFalsePositiveRate: 0.02,
     url: 'https://www.youtube.com/results?search_query=games',
     examples: pick('youtube', ['text', 'ocr']).filter((_, i) => i % 2 === 0),
     container: '#contents',
@@ -151,7 +155,6 @@ const baseFixtures: SiteFixture[] = [
   },
   {
     name: 'google-news',
-    maxFalsePositiveRate: 0.1,
     url: 'https://news.google.com/home',
     examples: pick('news'),
     container: 'main',
@@ -285,12 +288,15 @@ for (const fixture of fixtures) {
     const cards = fixture.examples.map((e, i) => fixture.card(e, i));
     const initial = Math.ceil(cards.length * 0.4);
     const start = Date.now();
-    if (fixture.settings)
-      await background.evaluate(
-        (value) =>
-          (globalThis as any).chrome.storage.local.set({ settings: value }),
-        fixture.settings,
-      );
+    // Placeholder thumbnails are gradients with outlined text, which the
+    // CLIP classifier (trained on real images) flags freely. These pages test
+    // page handling, text and OCR, so CLIP only counts when it is certain;
+    // it is measured on real images by npm run train:clip and npm run eval.
+    await background.evaluate(
+      (value) =>
+        (globalThis as any).chrome.storage.local.set({ settings: value }),
+      { clipThreshold: 0.995, ...fixture.settings },
+    );
     const page = await openFixture(
       context,
       fixture.url,
@@ -387,8 +393,6 @@ for (const fixture of fixtures) {
     writeReport();
     expect(seen, 'no card that must be hidden is ever painted').toEqual([]);
     if (gaps !== undefined) expect(gaps, 'grid rows have no holes').toBe(0);
-    // The image model trades some false positives for recall (it calls
-    // thumbnails of other GTA games GTA 6). Text-only pages must have none.
     expect(
       result.fp / Math.max(1, result.fp + result.tn),
       `false positives: ${result.falsePositives.join(' / ')}`,

@@ -218,6 +218,22 @@ export interface ClassifyOptions {
   blockedSource?: string;
 }
 
+/**
+ * The text names a GTA or Rockstar game other than GTA 6 ("GTA 5", "San
+ * Andreas", "Red Dead") and no GTA 6 name. The image classifier reads the
+ * letters "GTA" in thumbnails, so for such cards it may not hide on its own.
+ */
+export function namesOtherGame(input: string, ocr = false): boolean {
+  const words = canonicalTokens(input, ocr);
+  const text = ` ${words.join(' ')} `;
+  const has = (list: string[]) => list.some((phrase) => text.includes(phrase));
+  // OCR reads "GTA 5" as "GTAS" and "GTA IV" as "GTA1V" or "GTALV".
+  const misread =
+    ocr && words.some((w) => ['gtas', 'gta1v', 'gtalv', 'gtav'].includes(w));
+  // Anything that reads as GTA 6 ("GTA 6 vs GTA 5") is not "another game".
+  return (has(lists.other) || misread) && !contextRule(words, text);
+}
+
 export function classify(
   input: string,
   settings: Settings,

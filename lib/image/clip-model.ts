@@ -4,7 +4,7 @@ import {
   RawImage,
   env,
 } from '@huggingface/transformers';
-import { gtaProbability, type PromptEmbeddings } from './score';
+import { gtaProbability, type Classifier } from './score';
 
 import { CLIP_DTYPE, CLIP_MODEL } from './clip-files';
 
@@ -14,7 +14,7 @@ export { CLIP_DTYPE, CLIP_MODEL, VISION_FILE } from './clip-files';
  * Loads MobileCLIP-S0's fp16 vision encoder from the extension package.
  * `base` is where models/ and ort/ are served from; remote fetches are off.
  */
-export async function loadClip(base: string, prompts: PromptEmbeddings) {
+export async function loadClip(base: string, classifier: Classifier) {
   env.allowRemoteModels = false;
   env.allowLocalModels = true;
   env.useBrowserCache = false;
@@ -41,6 +41,6 @@ export async function loadClip(base: string, prompts: PromptEmbeddings) {
     const { image_embeds } = (await model(inputs)) as {
       image_embeds: { data: Float32Array };
     };
-    return gtaProbability(image_embeds.data, prompts);
+    return gtaProbability(image_embeds.data, classifier);
   };
 }

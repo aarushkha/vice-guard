@@ -1,4 +1,4 @@
-import { classify, type Verdict } from '../match/matcher';
+import { classify, namesOtherGame, type Verdict } from '../match/matcher';
 import type { Settings } from '../settings';
 import type { SiteModule, Source } from '../sites';
 import { collapseWrappers } from '../sites/types';
@@ -72,6 +72,8 @@ interface CardState {
   requested?: boolean;
   urls: string[];
   title: string;
+  /** Text read from the card's images, kept for the late CLIP verdict. */
+  imageText?: string;
   shell?: boolean;
 }
 
@@ -316,7 +318,11 @@ export function startEngine(
             rule: `${verdict.rule} "${result.ocr.slice(0, 40)}"`,
           };
       }
-      if (result.clip !== undefined && result.clip >= settings.clipThreshold)
+      if (
+        result.clip !== undefined &&
+        result.clip >= settings.clipThreshold &&
+        !namesOtherGame(`${state.title} | ${state.imageText ?? ''}`, true)
+      )
         return {
           hit: true,
           rule: `clip ${result.clip.toFixed(2)}`,
@@ -344,6 +350,7 @@ export function startEngine(
     };
     void Promise.all(state.urls.map(classifyImage)).then((results) => {
       if (!current()) return;
+      state.imageText = results.map((result) => result.ocr ?? '').join(' | ');
       const early = imageVerdict(state, results);
       const pending = state.urls.filter((_, i) => results[i]!.clipPending);
       if (early || !pending.length) return finish(early);

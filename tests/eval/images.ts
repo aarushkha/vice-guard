@@ -29,8 +29,8 @@ import {
   ocrParameters,
   recognizeOptions,
 } from '../../lib/image/ocr';
-import { gtaProbability, type PromptEmbeddings } from '../../lib/image/score';
-import prompts from '../../lib/image/prompts.json';
+import { gtaProbability, type Classifier } from '../../lib/image/score';
+import classifier from '../../lib/image/classifier.json';
 import type { Example } from './build-dataset';
 
 const cache = 'tests/eval/.cache';
@@ -160,10 +160,7 @@ for (const image of images) {
   const { image_embeds } = (await model(inputs)) as {
     image_embeds: { data: Float32Array };
   };
-  clip[image.id] = gtaProbability(
-    image_embeds.data,
-    prompts as PromptEmbeddings,
-  );
+  clip[image.id] = gtaProbability(image_embeds.data, classifier as Classifier);
   timing.clip.push(performance.now() - start);
 }
 await worker.terminate();

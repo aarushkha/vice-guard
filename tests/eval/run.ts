@@ -2,6 +2,7 @@
 // OCR and CLIP results come from caches written by `npm run eval:images`.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { classify } from '../../lib/detector';
+import { namesOtherGame } from '../../lib/match/matcher';
 import { defaults } from '../../lib/settings';
 import type { Example } from './build-dataset';
 
@@ -39,7 +40,13 @@ function layers(row: Row): Record<LayerName, boolean | undefined> {
       key in ocr
         ? classify(`${row.text} | ${ocr[key]!}`, defaults, { layer: 'ocr' }).hit
         : undefined,
-    clip: key in clip ? clip[key]! >= clipThreshold : undefined,
+    // Same guard as the engine: a card naming another GTA game is not hidden
+    // by the image classifier alone.
+    clip:
+      key in clip
+        ? clip[key]! >= clipThreshold &&
+          !namesOtherGame(`${row.text} | ${ocr[key] ?? ''}`, true)
+        : undefined,
   };
 }
 
@@ -77,7 +84,9 @@ function evaluate(rows: Row[]) {
     // Visual-only rows use placeholder art, which CLIP cannot meaningfully
     // recognise; they are reported separately and left out of "combined".
     if (row.carrier === 'visual') continue;
-    const hit = Object.values(result).some(Boolean);
+    // CLIP is judged on real images (section below); placeholder art is
+    // outside anything it was trained on, so it counts text and OCR only.
+    const hit = !!(result.text || result.ocr);
     tally(byLayer.combined!, row.label, hit);
     for (const group of [`site:${row.site}`, `category:${row.category}`]) {
       if (!byGroup.has(group)) byGroup.set(group, empty());
@@ -99,7 +108,6 @@ for (const [title, rows] of [
   ['All', [...generated, ...holdout]],
 ] as [string, Row[]][]) {
   const { byLayer, byGroup, misses, falsePositives } = evaluate(rows);
-  const visual = rows.filter((r) => r.carrier === 'visual');
   lines.push(`## ${title} (${rows.length} examples)`, '');
   lines.push(
     '| Layer | Positives scored | Recall | Negatives scored | False positives |',
@@ -109,15 +117,13 @@ for (const [title, rows] of [
     lines.push(
       `| ${name} | ${s.tp + s.fn} | ${recall(s)} | ${s.fp + s.tn} | ${fpr(s)} |`,
     );
-  if (visual.length) {
-    const caught = visual.filter((r) => layers(r).clip).length;
-    lines.push(
-      '',
-      `Visual-only placeholders (${visual.length}, excluded from "combined"): CLIP caught ${caught}. ` +
-        'Placeholder art does not look like GTA 6, so this measures nothing yet; put real ' +
-        'screenshots in tests/eval/images-real/ to score CLIP.',
-    );
-  }
+  lines.push(
+    '',
+    '"combined" is text and OCR. The clip row is on placeholder art (gradients',
+    'with outlined text), which says nothing about real images: CLIP is scored',
+    'in "Real screenshots" below when tests/eval/images-real/ has images, and',
+    'by `npm run train:clip` on held-out training images.',
+  );
   lines.push('', '| Group | Recall | FP rate |', '| --- | ---: | ---: |');
   for (const [group, s] of [...byGroup].sort())
     lines.push(`| ${group} | ${recall(s)} | ${fpr(s)} |`);
