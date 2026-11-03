@@ -11,29 +11,31 @@ their verdict (p50 / p95 / max over cards that were blank on screen at all).
 Thumbnails arrive with 90-350 ms of simulated network delay.
 Pages scroll one screen per 80 ms (far faster than a person) unless noted.
 
-| Page                            | Cards |          Recall | False positives | Flashes | Grid gaps | First screen |                  Blank on screen | Timeout hides |   Time |
-| ------------------------------- | ----: | --------------: | --------------: | ------: | --------: | -----------: | -------------------------------: | ------------: | -----: |
-| youtube                         |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.0 s |  242 cards: 269 / 2113 / 3610 ms |             0 | 38.9 s |
-| youtube-search                  |   164 |   97.8% (87/89) |     0.0% (0/75) |       0 |       n/a |        3.1 s |  105 cards: 219 / 1250 / 3000 ms |             0 | 22.6 s |
-| reddit                          |   135 |  100.0% (79/79) |     0.0% (0/56) |       0 |       n/a |        0.2 s |                             none |             0 |  6.1 s |
-| x                               |   118 |  100.0% (76/76) |     0.0% (0/42) |       0 |       n/a |        0.2 s |                             none |             0 |  5.6 s |
-| google                          |   108 |  100.0% (60/60) |     0.0% (0/48) |       0 |       n/a |        0.2 s |                             none |             0 |  5.8 s |
-| google-news                     |   120 |  100.0% (64/64) |     0.0% (0/56) |       0 |       n/a |        0.2 s |   56 cards: 218 / 1503 / 1601 ms |             0 | 13.0 s |
-| article (tier 2)                |    77 |  100.0% (44/44) |     0.0% (0/33) |       0 |       n/a |        0.2 s |                             none |             0 |  5.2 s |
-| youtube (one screen per second) |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        3.7 s | 159 cards: 1004 / 2452 / 3487 ms |             0 | 37.5 s |
-| youtube (one screen per 2.5 s)  |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        3.8 s |   79 cards: 600 / 3640 / 5188 ms |             0 | 76.9 s |
+| Page                                        | Cards |          Recall | False positives | Flashes | Grid gaps | First screen |                 Blank on screen | Timeout hides |   Time |
+| ------------------------------------------- | ----: | --------------: | --------------: | ------: | --------: | -----------: | ------------------------------: | ------------: | -----: |
+| youtube                                     |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.4 s | 257 cards: 284 / 2541 / 4224 ms |             0 | 38.1 s |
+| youtube-search                              |   164 |   97.8% (87/89) |     0.0% (0/75) |       0 |       n/a |        2.8 s | 105 cards: 226 / 1534 / 2697 ms |             0 | 20.8 s |
+| reddit                                      |   135 |  100.0% (79/79) |     0.0% (0/56) |       0 |       n/a |        0.2 s |                            none |             0 |  6.1 s |
+| x                                           |   118 |  100.0% (76/76) |     0.0% (0/42) |       0 |       n/a |        0.2 s |                            none |             0 |  5.6 s |
+| google                                      |   108 |  100.0% (60/60) |     0.0% (0/48) |       0 |       n/a |        0.2 s |                            none |             0 |  5.7 s |
+| google-news                                 |   120 |  100.0% (64/64) |     0.0% (0/56) |       0 |       n/a |        3.2 s |  55 cards: 220 / 2581 / 2965 ms |             0 | 13.6 s |
+| article (tier 2)                            |    77 |  100.0% (44/44) |     0.0% (0/33) |       0 |       n/a |        0.2 s |                            none |             0 |  5.2 s |
+| youtube (one screen per second)             |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.5 s | 186 cards: 659 / 2799 / 4249 ms |             0 | 37.4 s |
+| youtube (one screen per 2.5 s)              |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        4.3 s |  57 cards: 780 / 3926 / 4108 ms |             0 | 77.2 s |
+| youtube (not waiting for image recognition) |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |        2.3 s | 246 cards: 295 / 1164 / 2121 ms |             0 | 25.7 s |
 
 Hide reasons (audit log, includes timeout hides that were later undone):
 
-- youtube: explicit 111, rockstar-story 4, vice-city 12, gta-recent 14, character 2, unique-name 19, jason-lucia 7, rockstar-recent 1
+- youtube: rockstar-story 4, vice-city 12, gta-recent 14, character 2, unique-name 19, jason-lucia 7, explicit 111, rockstar-recent 1
 - youtube-search: rockstar-story 2, gta-recent 9, character 1, unique-name 8, jason-lucia 4, vice-city 7, explicit 55, rockstar-recent 1
 - reddit: explicit 59, gta-recent 5, unique-name 5, jason-lucia 2, vice-city 3, character 2, rockstar-story 2, rockstar-recent 1
 - x: explicit 62, gta-recent 2, rockstar-story 2, unique-name 7, jason-lucia 2, vice-city 1
 - google: explicit 57, unique-name 2, gta-recent 1
 - google-news: explicit 54, rockstar-recent 2, gta-recent 2, rockstar-story 2, vice-city 2, jason-lucia 1, unique-name 1
 - article (tier 2): explicit 43, gta-recent 1
-- youtube (one screen per second): explicit 111, rockstar-story 4, vice-city 12, gta-recent 14, character 2, unique-name 19, jason-lucia 7, rockstar-recent 1
+- youtube (one screen per second): rockstar-story 4, vice-city 12, gta-recent 14, character 2, unique-name 19, jason-lucia 7, explicit 111, rockstar-recent 1
 - youtube (one screen per 2.5 s): rockstar-story 4, vice-city 12, gta-recent 14, character 2, unique-name 19, jason-lucia 7, explicit 111, rockstar-recent 1
+- youtube (not waiting for image recognition): rockstar-story 4, vice-city 12, gta-recent 14, character 2, unique-name 19, jason-lucia 7, explicit 111, rockstar-recent 1
 
 Misses on youtube:
 
@@ -57,6 +59,14 @@ Misses on youtube (one screen per second):
 - POV: you finally finish it Creator 202
 
 Misses on youtube (one screen per 2.5 s):
+
+- I was NOT ready for this Creator 145
+- I can't believe this happened... Creator 169
+- I can't believe this happened... Creator 190
+- You NEED to see this Creator 191
+- POV: you finally finish it Creator 202
+
+Misses on youtube (not waiting for image recognition):
 
 - I was NOT ready for this Creator 145
 - I can't believe this happened... Creator 169

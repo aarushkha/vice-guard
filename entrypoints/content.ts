@@ -51,6 +51,11 @@ export default defineContentScript({
           type: 'vg:image',
           url,
         } satisfies ContentMessage) as Promise<ImageResult>,
+      clip: (url) =>
+        browser.runtime.sendMessage({
+          type: 'vg:clip',
+          url,
+        } satisfies ContentMessage) as Promise<ImageResult>,
       prioritize: (urls) => void send({ type: 'vg:prioritize', urls }),
       isBlocked: (source) => blocklist[source.key]?.blocked === true,
       onHidden: (entry) =>

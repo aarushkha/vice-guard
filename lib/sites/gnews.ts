@@ -1,6 +1,7 @@
 import { imagesIn, type SiteModule } from './types';
 
-const storyLink = 'a[href*="./read/"], a[href*="/read/"], a[href*="./articles/"]';
+const storyLink =
+  'a[href*="./read/"], a[href*="/read/"], a[href*="./articles/"]';
 // A cluster holds at most this many story links; the feed holds many more.
 const clusterLinks = 20;
 
@@ -31,9 +32,12 @@ export const gnews: SiteModule = {
   pendingLeaves: `main :is(${storyLink}, time, img, h3, h4, figure)`,
   card: cluster,
   includeNested: true,
-  images: (card) => imagesIn(card, 'img[src*="/api/attachments/"], figure img', 2),
+  images: (card) =>
+    imagesIn(card, 'img[src*="/api/attachments/"], figure img', 2),
   source(card) {
-    const name = card.querySelector('[data-n-tid] + div, .vr1PYe, [class*="source"]')?.textContent?.trim();
+    const name = card
+      .querySelector('[data-n-tid] + div, .vr1PYe, [class*="source"]')
+      ?.textContent?.trim();
     return name ? { key: `gnews:${name.toLowerCase()}`, name } : undefined;
   },
   expectsCards: (location) =>

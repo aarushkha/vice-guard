@@ -121,8 +121,37 @@ export default defineBackground(() => {
       url,
     } satisfies OffscreenMessage)) as ImageResult | undefined;
     if (!result) return { error: 'no response' };
-    if (!result.error) await cache.set(url, result);
+    if (!result.clipPending) {
+      if (!result.error) await cache.set(url, result);
+      return result;
+    }
+    // OCR answered first; fetch CLIP's half now so it is cached complete.
+    const full = (
+      browser.runtime.sendMessage({
+        target: 'offscreen',
+        type: 'vg:clip',
+        url,
+      } satisfies OffscreenMessage) as Promise<ImageResult | undefined>
+    ).then(async (clip) => {
+      const merged: ImageResult = {
+        ...result,
+        ...(clip ?? { error: 'no response' }),
+        clipPending: undefined,
+      };
+      if (!merged.error) await cache.set(url, merged);
+      return merged;
+    });
+    late.set(url, full);
+    void full.finally(() => setTimeout(() => late.delete(url), 60_000));
     return result;
+  }
+  /** Complete results (with CLIP) still being finished, by URL. */
+  const late = new Map<string, Promise<ImageResult>>();
+  async function clipResult(url: string): Promise<ImageResult> {
+    return (
+      (await late.get(url)) ??
+      (await cache.get(url)) ?? { error: 'no clip result' }
+    );
   }
 
   browser.runtime.onMessage.addListener((raw, sender, sendResponse) => {
@@ -145,6 +174,12 @@ export default defineBackground(() => {
     }
     if (message.type === 'vg:image') {
       analyze(message.url)
+        .then(sendResponse)
+        .catch((error: unknown) => sendResponse({ error: String(error) }));
+      return true;
+    }
+    if (message.type === 'vg:clip') {
+      clipResult(message.url)
         .then(sendResponse)
         .catch((error: unknown) => sendResponse({ error: String(error) }));
       return true;

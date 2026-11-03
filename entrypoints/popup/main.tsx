@@ -115,6 +115,17 @@ function SettingsTab({
           </span>
         )}
       </Toggle>
+      <Toggle
+        label="Wait for image recognition"
+        disabled={!ready || !settings.imageLayer}
+        checked={settings.waitForClip}
+        onChange={(waitForClip) => update({ waitForClip })}
+      >
+        On: cards stay blank until the image model has checked them too
+        (strictest). Off: cards show once their title and thumbnail text are
+        clean, about twice as fast; the image model keeps checking and removes a
+        card if it recognises GTA 6, so a thumbnail may show for a moment.
+      </Toggle>
       <section>
         <label htmlFor="threshold">
           Image sensitivity <output>{settings.clipThreshold.toFixed(2)}</output>

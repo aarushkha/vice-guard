@@ -10,6 +10,8 @@ export interface ImageResult {
   ocr?: string;
   /** CLIP probability that the image shows GTA 6. */
   clip?: number;
+  /** OCR is done and CLIP is still running; ask for it with `deps.clip`. */
+  clipPending?: boolean;
   error?: string;
   /** Milliseconds spent per stage in the offscreen document (diagnostics). */
   timing?: { fetch: number; ocr: number; clip: number; total: number };
@@ -26,6 +28,8 @@ export interface HiddenEntry {
 export interface EngineDeps {
   /** Classifies one image locally; omitted when the image layer is unavailable. */
   image?: (url: string) => Promise<ImageResult>;
+  /** The CLIP verdict for an image whose first result had `clipPending`. */
+  clip?: (url: string) => Promise<ImageResult>;
   /** Moves pending image requests for on-screen cards to the front of the queue. */
   prioritize?: (urls: string[]) => void;
   isBlocked(source: Source): boolean;
@@ -243,59 +247,87 @@ export function startEngine(
     return request;
   }
 
+  const clipRequests = new Map<string, Promise<ImageResult>>();
+  function clipImage(url: string) {
+    let request = clipRequests.get(url);
+    if (!request) {
+      request = (
+        deps.clip?.(url) ?? Promise.resolve({ error: 'no clip' })
+      ).catch((error: unknown) => ({ error: String(error) }));
+      clipRequests.set(url, request);
+    }
+    return request;
+  }
+
+  /** A hit verdict from image results (errors fail closed), if any. */
+  function imageVerdict(
+    state: CardState,
+    results: ImageResult[],
+  ): Verdict | undefined {
+    for (const result of results) {
+      if (result.error)
+        return {
+          hit: true,
+          rule: `image-error: ${result.error.slice(0, 120)}`,
+          layer: 'image',
+        };
+      if (result.ocr) {
+        // Thumbnail text is judged together with the card's own text.
+        const verdict = classify(`${state.title} | ${result.ocr}`, settings, {
+          layer: 'ocr',
+        });
+        if (verdict.hit)
+          return {
+            ...verdict,
+            rule: `${verdict.rule} "${result.ocr.slice(0, 40)}"`,
+          };
+      }
+      if (result.clip !== undefined && result.clip >= settings.clipThreshold)
+        return {
+          hit: true,
+          rule: `clip ${result.clip.toFixed(2)}`,
+          layer: 'clip',
+        };
+    }
+    return undefined;
+  }
+
   function requestImages(card: HTMLElement) {
     const state = states.get(card);
     if (!state || state.status !== 'image' || state.requested) return;
     state.requested = true;
     const signature = state.signature;
     visibility.observe(card);
-    void Promise.all(state.urls.map(classifyImage)).then((results) => {
-      if (states.get(card) !== state || state.signature !== signature) return;
+    const current = () =>
+      states.get(card) === state && state.signature === signature;
+    const finish = (verdict: Verdict | undefined) => {
       clearTimeout(state.timer);
       card.removeAttribute(WAIT);
       visibility.unobserve(card);
-      for (const result of results) {
-        if (result.error) {
-          hide(card, state, {
-            hit: true,
-            rule: `image-error: ${result.error.slice(0, 120)}`,
-            layer: 'image',
-          });
-          return;
-        }
-        if (result.ocr) {
-          // Thumbnail text is judged together with the card's own text.
-          const verdict = classify(`${state.title} | ${result.ocr}`, settings, {
-            layer: 'ocr',
-          });
-          if (verdict.hit) {
-            if (state.timedOut) hidden.delete(card);
-            hide(
-              card,
-              state,
-              {
-                ...verdict,
-                rule: `${verdict.rule} "${result.ocr.slice(0, 40)}"`,
-              },
-              true,
-            );
-            return;
-          }
-        }
-        if (
-          result.clip !== undefined &&
-          result.clip >= settings.clipThreshold
-        ) {
-          if (state.timedOut) hidden.delete(card);
-          hide(card, state, {
-            hit: true,
-            rule: `clip ${result.clip.toFixed(2)}`,
-            layer: 'clip',
-          });
-          return;
-        }
+      if (!verdict) return restore(card, state);
+      if (state.timedOut) hidden.delete(card);
+      hide(card, state, verdict, true);
+    };
+    void Promise.all(state.urls.map(classifyImage)).then((results) => {
+      if (!current()) return;
+      const early = imageVerdict(state, results);
+      const pending = state.urls.filter((_, i) => results[i]!.clipPending);
+      if (early || !pending.length) return finish(early);
+      const late = Promise.all(pending.map(clipImage));
+      if (settings.waitForClip) {
+        // Strict: stays blank until CLIP has judged the image too.
+        void late.then(
+          (clips) => current() && finish(imageVerdict(state, clips)),
+        );
+        return;
       }
-      restore(card, state);
+      // Fast: show now; CLIP can still remove the card when it answers.
+      finish(undefined);
+      void late.then((clips) => {
+        if (!current() || state.status !== 'ok') return;
+        const verdict = imageVerdict(state, clips);
+        if (verdict) hide(card, state, verdict, true);
+      });
     });
   }
 
@@ -406,6 +438,7 @@ export function startEngine(
     targets.clear();
     states = new WeakMap();
     imageRequests.clear();
+    clipRequests.clear();
     reportCount();
     if (settings.enabled) {
       roots.add(doc.documentElement);

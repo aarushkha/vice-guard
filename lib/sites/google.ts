@@ -16,7 +16,8 @@ const imageCard = imageCards.join(',');
 /** Image cards get their panel's query and source domains as context. */
 function imageContext(element: HTMLElement): string {
   const parts = [
-    element.closest('[data-viewer-group][data-q]')?.getAttribute('data-q') ?? '',
+    element.closest('[data-viewer-group][data-q]')?.getAttribute('data-q') ??
+      '',
     element.getAttribute('data-lpage') ?? '',
   ];
   for (const link of element.querySelectorAll<HTMLAnchorElement>('a[href]')) {
@@ -33,7 +34,8 @@ function imageContext(element: HTMLElement): string {
 export const google: SiteModule = {
   id: 'google',
   tier: 1,
-  matches: (host) => /(^|\.)google\.[a-z.]+$/.test(host) && !host.startsWith('news.'),
+  matches: (host) =>
+    /(^|\.)google\.[a-z.]+$/.test(host) && !host.startsWith('news.'),
   cards: [
     // Web results and the section wrappers (Videos, Images, Top stories...).
     '#rso > div',
@@ -82,7 +84,8 @@ export const google: SiteModule = {
       : card.matches('div[data-vid], g-inner-card, .SoaBEf')
         ? imagesIn(card, 'img', 1)
         : [],
-  hideTarget: (card) => collapseWrappers(card, 'body, #rso, #botstuff, #rhs, [role="list"]'),
+  hideTarget: (card) =>
+    collapseWrappers(card, 'body, #rso, #botstuff, #rhs, [role="list"]'),
   expectsCards: (location) =>
     location.pathname === '/search' &&
     new URLSearchParams(location.search).has('q'),

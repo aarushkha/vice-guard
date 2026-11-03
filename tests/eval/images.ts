@@ -121,6 +121,24 @@ async function ocrPasses(path: string, synthetic: boolean) {
   return texts.join(' | ');
 }
 
+/**
+ * What the extension hands CLIP: the image as served (480x360 for rendered
+ * thumbnails), shrunk so its shorter side is at most 256 px.
+ */
+async function clipInput(path: string, synthetic: boolean) {
+  const meta = await sharp(path).metadata();
+  const [w0, h0] = synthetic ? [480, 360] : [meta.width!, meta.height!];
+  const scale = Math.min(1, 256 / Math.min(w0, h0));
+  const [w, h] = [Math.round(w0 * scale), Math.round(h0 * scale)];
+  const { data } = await sharp(path)
+    .resize(w0, h0)
+    .resize(w, h)
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return new RawImage(new Uint8ClampedArray(data), w, h, 3);
+}
+
 env.allowRemoteModels = false;
 env.localModelPath = 'public/models/';
 const processor = await AutoProcessor.from_pretrained(CLIP_MODEL);
@@ -136,7 +154,9 @@ for (const image of images) {
   ocr[image.id] = await ocrPasses(image.path, !image.id.startsWith('real:'));
   timing.ocr.push(performance.now() - start);
   start = performance.now();
-  const inputs = await processor(await RawImage.read(image.path));
+  const inputs = await processor(
+    await clipInput(image.path, !image.id.startsWith('real:')),
+  );
   const { image_embeds } = (await model(inputs)) as {
     image_embeds: { data: Float32Array };
   };

@@ -75,12 +75,15 @@ export const reddit: SiteModule = {
     // New reddit wraps each feed post in <article>, followed by an <hr>.
     if (card.matches(post)) {
       const article = card.closest('article');
-      if (article && article.querySelectorAll(post).length === 1) return article;
+      if (article && article.querySelectorAll(post).length === 1)
+        return article;
     }
     return collapseWrappers(card);
   },
   expectsCards: (location) =>
-    !/^\/(settings|login|register|message|prefs|submit)/.test(location.pathname),
+    !/^\/(settings|login|register|message|prefs|submit)/.test(
+      location.pathname,
+    ),
   css: `
     [data-vg-hit] + hr { display: none !important; }
   `,

@@ -24,12 +24,15 @@ export function gtaProbability(
   const image = normalizeVector(imageEmbedding);
   const logits = [...prompts.positive, ...prompts.negative].map(
     ({ embedding }) =>
-      prompts.logitScale * embedding.reduce((sum, value, i) => sum + value * image[i]!, 0),
+      prompts.logitScale *
+      embedding.reduce((sum, value, i) => sum + value * image[i]!, 0),
   );
   const max = Math.max(...logits);
   const exp = logits.map((logit) => Math.exp(logit - max));
   const total = exp.reduce((a, b) => a + b, 0);
-  return exp.slice(0, prompts.positive.length).reduce((a, b) => a + b, 0) / total;
+  return (
+    exp.slice(0, prompts.positive.length).reduce((a, b) => a + b, 0) / total
+  );
 }
 
 export const positivePrompts = [

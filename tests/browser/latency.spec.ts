@@ -23,16 +23,26 @@ test('image layer latency', async ({ extension: { popup } }) => {
   const analyze = (url: string) =>
     popup.evaluate(async (u) => {
       const start = performance.now();
-      const result = await (globalThis as any).chrome.runtime.sendMessage({
-        type: 'vg:image',
-        url: u,
-      });
-      return { ...result, roundTrip: Math.round(performance.now() - start) };
+      const send = (type: string) =>
+        (globalThis as any).chrome.runtime.sendMessage({ type, url: u });
+      const early = await send('vg:image');
+      // Time until text and thumbnail text are known (what a card waits
+      // for with "Wait for image recognition" off).
+      const ocrRoundTrip = Math.round(performance.now() - start);
+      const result = early.clipPending
+        ? { ...early, ...(await send('vg:clip')) }
+        : early;
+      return {
+        ...result,
+        ocrRoundTrip,
+        roundTrip: Math.round(performance.now() - start),
+      };
     }, url);
 
   const rows: {
     url: string;
     roundTrip: number;
+    ocrRoundTrip: number;
     fetch: number;
     ocr: number;
     clip: number;
@@ -45,6 +55,7 @@ test('image layer latency', async ({ extension: { popup } }) => {
     rows.push({
       url: url.split('/').pop()!,
       roundTrip: result.roundTrip,
+      ocrRoundTrip: result.ocrRoundTrip,
       ...result.timing,
       score: result.clip,
     });
@@ -68,8 +79,12 @@ test('image layer latency', async ({ extension: { popup } }) => {
   console.log(
     `sequential warm: p50 ${p(trips, 0.5)} ms, p90 ${p(trips, 0.9)} ms; first ${rows[0]!.roundTrip} ms`,
   );
+  const textTrips = rows.slice(1).map((r) => r.ocrRoundTrip);
   console.log(
-    `burst of 8: all done in ${burstMs} ms; slowest ${Math.max(...burst.map((r) => r.roundTrip))} ms`,
+    `without waiting for image recognition: p50 ${p(textTrips, 0.5)} ms, p90 ${p(textTrips, 0.9)} ms`,
+  );
+  console.log(
+    `burst of 8: all done in ${burstMs} ms; slowest ${Math.max(...burst.map((r) => r.roundTrip))} ms, slowest text-only ${Math.max(...burst.map((r) => r.ocrRoundTrip))} ms`,
   );
   const cached = await analyze(`https://img.test/${rows[0]!.url}`);
   console.log(`cache hit: ${cached.roundTrip} ms`);

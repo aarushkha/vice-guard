@@ -1,4 +1,5 @@
-export type SiteId = 'youtube' | 'reddit' | 'x' | 'google' | 'gnews' | 'generic';
+export type SiteId =
+  'youtube' | 'reddit' | 'x' | 'google' | 'gnews' | 'generic';
 
 /** The account a card came from: a channel, subreddit or X handle. */
 export interface Source {
@@ -66,7 +67,8 @@ export function collapseWrappers(card: HTMLElement, stop = 'body, main') {
   let target = card;
   for (let depth = 0; depth < 4; depth++) {
     const parent = target.parentElement;
-    if (!parent || parent.childElementCount !== 1 || parent.matches(stop)) break;
+    if (!parent || parent.childElementCount !== 1 || parent.matches(stop))
+      break;
     target = parent;
   }
   return target;

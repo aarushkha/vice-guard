@@ -12,7 +12,18 @@ export function canonicalImageUrl(url: string): string {
       const id = /\/vi(?:_webp)?\/([\w-]{11})\//.exec(parsed.pathname)?.[1];
       if (id) return `ytimg:${id}`;
     }
-    for (const name of ['sqp', 'rs', 'name', 'width', 'height', 'w', 'h', 's', 'auto', 'crop'])
+    for (const name of [
+      'sqp',
+      'rs',
+      'name',
+      'width',
+      'height',
+      'w',
+      'h',
+      's',
+      'auto',
+      'crop',
+    ])
       parsed.searchParams.delete(name);
     return parsed.href;
   } catch {
@@ -35,7 +46,9 @@ export function createImageCache() {
   let entries: Stored | undefined;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   const load = async () =>
-    (entries ??= ((await browser.storage.local.get('imageCache')).imageCache as Stored | undefined) ?? {});
+    (entries ??=
+      ((await browser.storage.local.get('imageCache')).imageCache as
+        Stored | undefined) ?? {});
   const save = () => {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -53,7 +66,11 @@ export function createImageCache() {
       return value && { ocr: value[0], clip: value[1] ?? undefined };
     },
     async set(url: string, result: ImageResult) {
-      (await load())[await hashUrl(url)] = [result.ocr ?? '', result.clip ?? null, Date.now()];
+      (await load())[await hashUrl(url)] = [
+        result.ocr ?? '',
+        result.clip ?? null,
+        Date.now(),
+      ];
       save();
     },
     size: () => Object.keys(entries ?? {}).length,

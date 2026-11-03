@@ -59,6 +59,8 @@ interface SiteFixture {
   /** CSS selector of the element new cards are appended to. */
   container: string;
   grid?: { item: string; columns: number };
+  /** Settings stored before the page opens. */
+  settings?: Record<string, unknown>;
   /** Pause per 600 px scrolled; the default 80 ms is far faster than a person. */
   scrollStepMs?: number;
 }
@@ -178,6 +180,11 @@ const fixtures: SiteFixture[] = [
     name: 'youtube (one screen per 2.5 s)',
     scrollStepMs: 2500,
   },
+  {
+    ...baseFixtures[0]!,
+    name: 'youtube (not waiting for image recognition)',
+    settings: { waitForClip: false },
+  },
 ];
 
 /** Appends the remaining cards in batches, as a feed does while scrolling. */
@@ -273,6 +280,12 @@ for (const fixture of fixtures) {
     const cards = fixture.examples.map((e, i) => fixture.card(e, i));
     const initial = Math.ceil(cards.length * 0.4);
     const start = Date.now();
+    if (fixture.settings)
+      await background.evaluate(
+        (value) =>
+          (globalThis as any).chrome.storage.local.set({ settings: value }),
+        fixture.settings,
+      );
     const page = await openFixture(
       context,
       fixture.url,

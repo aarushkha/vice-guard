@@ -6,7 +6,7 @@
 | -------- | ---------------: | -----: | ---------------: | --------------: |
 | text     |              424 |  81.4% |              315 |            0.0% |
 | ocr      |               79 |  79.7% |               57 |            0.0% |
-| clip     |               79 |   0.0% |               57 |            0.0% |
+| clip     |               79 |   1.3% |               57 |            0.0% |
 | combined |              412 |  99.0% |              315 |            0.0% |
 
 Visual-only placeholders (12, excluded from "combined"): CLIP caught 0. Placeholder art does not look like GTA 6, so this measures nothing yet; put real screenshots in tests/eval/images-real/ to score CLIP.
@@ -64,7 +64,7 @@ False positives (0):
 | -------- | ---------------: | -----: | ---------------: | --------------: |
 | text     |              510 |  84.5% |              387 |            0.0% |
 | ocr      |               79 |  79.7% |               57 |            0.0% |
-| clip     |               79 |   0.0% |               57 |            0.0% |
+| clip     |               79 |   1.3% |               57 |            0.0% |
 | combined |              498 |  99.2% |              387 |            0.0% |
 
 Visual-only placeholders (12, excluded from "combined"): CLIP caught 0. Placeholder art does not look like GTA 6, so this measures nothing yet; put real screenshots in tests/eval/images-real/ to score CLIP.

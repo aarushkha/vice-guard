@@ -89,57 +89,79 @@ async function ocr(image: OffscreenCanvas, pixels: ImageData): Promise<string> {
 // Single-threaded wasm (offscreen documents are not cross-origin isolated),
 // so throughput comes from separate workers, each with its own session.
 const CLIP_WORKERS = WORKERS;
-const pending = new Map<
-  number,
-  (result: { score?: number; error?: string }) => void
->();
-const load = new Map<Worker, number>();
 let readyCount = 0;
-const clipWorkers = Array.from({ length: CLIP_WORKERS }, () => {
+interface ClipTask {
+  job: Job;
+  pixels: ImageData;
+  resolve(result: { score?: number; error?: string }): void;
+}
+const idleClip: Worker[] = [];
+const clipQueue: ClipTask[] = [];
+const clipRunning = new Map<Worker, ClipTask>();
+for (let i = 0; i < CLIP_WORKERS; i++) {
   const worker = new Worker(new URL('./clip-worker.ts', import.meta.url), {
     type: 'module',
   });
-  load.set(worker, 0);
+  idleClip.push(worker);
   worker.onmessage = (event: MessageEvent) => {
-    const data = event.data as {
-      type: string;
-      id?: number;
-      score?: number;
-      error?: string;
-    };
+    const data = event.data as { type: string; score?: number; error?: string };
     if (data.type === 'ready' && ++readyCount === 1)
       ((status.clip = 'ready'), (status.clipReadyMs = since(started)));
     if (data.type === 'error')
       ((status.clip = 'error'), (status.error = data.error));
     if (data.type !== 'result') return report();
-    load.set(worker, load.get(worker)! - 1);
-    pending.get(data.id!)?.(data);
-    pending.delete(data.id!);
+    clipRunning.get(worker)?.resolve(data);
+    clipRunning.delete(worker);
+    idleClip.push(worker);
+    pumpClip();
   };
-  return worker;
-});
-let nextId = 0;
-function clip(pixels: ImageData): Promise<{ score?: number; error?: string }> {
+}
+/** CLIP has its own queue, on-screen images first, so it never holds up OCR. */
+function pumpClip() {
+  while (idleClip.length && clipQueue.length) {
+    let index = 0;
+    for (let i = 1; i < clipQueue.length; i++)
+      if (clipQueue[i]!.job.visibleAt > clipQueue[index]!.job.visibleAt)
+        index = i;
+    const task = clipQueue.splice(index, 1)[0]!;
+    const worker = idleClip.pop()!;
+    clipRunning.set(worker, task);
+    worker.postMessage({ id: 0, pixels: task.pixels });
+  }
+}
+function clip(
+  job: Job,
+  pixels: ImageData,
+): Promise<{ score?: number; error?: string }> {
   if (status.clip === 'error') return Promise.resolve({ error: status.error });
-  const id = nextId++;
-  // Least-loaded worker.
-  const worker = clipWorkers.reduce((a, b) =>
-    load.get(b)! < load.get(a)! ? b : a,
-  );
-  load.set(worker, load.get(worker)! + 1);
   return new Promise((resolve) => {
-    pending.set(id, resolve);
-    worker.postMessage({ id, pixels });
+    clipQueue.push({ job, pixels, resolve });
+    pumpClip();
   });
 }
 
 interface Loaded {
   canvas: OffscreenCanvas;
   pixels: ImageData;
+  /** A small copy for CLIP, which resizes to 256 px anyway. */
+  clipPixels: ImageData;
   fetchMs: number;
 }
 
-/** Downloads and decodes one image, scaled for OCR. */
+function scaled(bitmap: ImageBitmap, scale: number) {
+  const canvas = new OffscreenCanvas(
+    Math.max(1, Math.round(bitmap.width * scale)),
+    Math.max(1, Math.round(bitmap.height * scale)),
+  );
+  const context = canvas.getContext('2d', { willReadFrequently: true })!;
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return {
+    canvas,
+    pixels: context.getImageData(0, 0, canvas.width, canvas.height),
+  };
+}
+
+/** Downloads and decodes one image: scaled up for OCR, down for CLIP. */
 async function download(url: string): Promise<Loaded> {
   const start = performance.now();
   const response = await fetch(url, {
@@ -148,53 +170,61 @@ async function download(url: string): Promise<Loaded> {
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const bitmap = await createImageBitmap(await response.blob());
-  // OCR reads small thumbnail text better upscaled; CLIP resizes to 256 itself.
-  const scale = Math.min(
-    OCR_SCALE,
-    OCR_MAX_SIDE / Math.max(bitmap.width, bitmap.height),
+  // OCR reads small thumbnail text better upscaled.
+  const { canvas, pixels } = scaled(
+    bitmap,
+    Math.min(OCR_SCALE, OCR_MAX_SIDE / Math.max(bitmap.width, bitmap.height)),
   );
-  const canvas = new OffscreenCanvas(
-    Math.round(bitmap.width * scale),
-    Math.round(bitmap.height * scale),
+  const { pixels: clipPixels } = scaled(
+    bitmap,
+    Math.min(1, 256 / Math.min(bitmap.width, bitmap.height)),
   );
-  const context = canvas.getContext('2d', { willReadFrequently: true })!;
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
   bitmap.close();
-  return { canvas, pixels, fetchMs: since(start) };
+  return { canvas, pixels, clipPixels, fetchMs: since(start) };
 }
 
-async function analyze({
-  canvas,
-  pixels,
-  fetchMs,
-}: Loaded): Promise<ImageResult> {
+/** CLIP halves of results whose OCR half was already sent, by URL. */
+const lateClip = new Map<string, Promise<ImageResult>>();
+
+/**
+ * Starts OCR and queues CLIP. Resolves when OCR is done, with clipPending
+ * set; CLIP's half is collected with a vg:clip message.
+ */
+function analyze(job: Job, { canvas, pixels, clipPixels, fetchMs }: Loaded) {
   const start = performance.now();
   const timed = async <T>(task: Promise<T>): Promise<[T, number]> => {
     const begin = performance.now();
     const value = await task;
     return [value, since(begin)];
   };
-  const [[text, ocrMs], [vision, clipMs]] = await Promise.all([
-    timed(status.ocr === 'error' ? Promise.resolve('') : ocr(canvas, pixels)),
-    timed(clip(pixels)),
-  ]);
-  if (status.ocr === 'error' && vision.error) return { error: vision.error };
-  return {
+  const ocrTask = timed(
+    status.ocr === 'error' ? Promise.resolve('') : ocr(canvas, pixels),
+  );
+  const clipTask = timed(clip(job, clipPixels));
+  lateClip.set(
+    job.url,
+    Promise.all([ocrTask, clipTask]).then(([[, ocrMs], [vision, clipMs]]) =>
+      vision.error
+        ? { error: vision.error }
+        : {
+            clip: vision.score,
+            timing: {
+              fetch: fetchMs,
+              ocr: ocrMs,
+              clip: clipMs,
+              total: fetchMs + since(start),
+            },
+          },
+    ),
+  );
+  return ocrTask.then(([text]): ImageResult => ({
     ocr: text,
-    clip: vision.score,
-    error: undefined,
-    timing: {
-      fetch: fetchMs,
-      ocr: ocrMs,
-      clip: clipMs,
-      total: fetchMs + since(start),
-    },
-  };
+    clipPending: true,
+  }));
 }
 
 // Downloads start as soon as a request arrives (network time would otherwise
-// sit inside a compute slot); analysis runs CLIP_WORKERS at a time on images
+// sit inside a compute slot); OCR runs OCR_WORKERS images at a time on images
 // that have arrived. Cards on screen go first, most recently shown first, so
 // cards the user already scrolled past do not hold up the ones in view.
 const MAX_DOWNLOADS = 8;
@@ -208,6 +238,8 @@ interface Job {
   resolve(result: ImageResult): void;
 }
 const queue: Job[] = [];
+/** Every job not yet finished with CLIP, for priority updates. */
+const live = new Map<string, Job>();
 /** Priorities that arrived before their request. */
 const shownEarly = new Map<string, number>();
 let running = 0;
@@ -231,23 +263,27 @@ function pump() {
         pump();
       });
   }
-  // Analysis, highest priority first among images that have arrived.
-  while (running < CLIP_WORKERS) {
+  // OCR, highest priority first among images that have arrived.
+  while (running < OCR_WORKERS) {
     const job = queue
       .filter((entry) => entry.loaded || entry.failed)
       .sort(byPriority)[0];
     if (!job) break;
     queue.splice(queue.indexOf(job), 1);
     if (job.failed) {
+      live.delete(job.url);
       job.resolve({ error: job.failed });
       continue;
     }
     running++;
-    analyze(job.loaded!)
-      .catch((error: unknown) => ({ error: String(error) }))
+    const loaded = job.loaded!;
+    job.loaded = undefined;
+    void analyze(job, loaded)
+      .catch((error: unknown): ImageResult => ({ error: String(error) }))
       .then((result) => {
         running--;
         job.resolve(result);
+        void lateClip.get(job.url)?.finally(() => live.delete(job.url));
         pump();
       });
   }
@@ -256,10 +292,18 @@ function pump() {
 browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
   const message = raw as OffscreenMessage;
   if (message.target !== 'offscreen') return;
+  if (message.type === 'vg:clip') {
+    const result = lateClip.get(message.url);
+    lateClip.delete(message.url);
+    void (result ?? Promise.resolve({ error: 'no pending clip' })).then(
+      sendResponse,
+    );
+    return true;
+  }
   if (message.type === 'vg:prioritize') {
     const now = performance.now();
     for (const url of message.urls) {
-      const job = queue.find((entry) => entry.url === url);
+      const job = live.get(url);
       if (job) job.visibleAt = now;
       // The request itself can arrive after this (the background checks its
       // cache first); remember the priority for it.
@@ -270,12 +314,14 @@ browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
   }
   const early = shownEarly.get(message.url) ?? 0;
   shownEarly.delete(message.url);
-  queue.push({
+  const job: Job = {
     url: message.url,
     visibleAt: early,
     started: false,
     resolve: sendResponse,
-  });
+  };
+  queue.push(job);
+  live.set(job.url, job);
   pump();
   return true;
 });

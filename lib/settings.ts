@@ -10,6 +10,11 @@ export interface Settings {
   imageLayer: boolean;
   /** CLIP probability (0-1) at or above which an image counts as GTA 6. */
   clipThreshold: number;
+  /**
+   * Keep a card hidden until CLIP has judged its image too. Off: show it once
+   * text and thumbnail text are clean, and remove it if CLIP objects later.
+   */
+  waitForClip: boolean;
 }
 
 export const defaults: Settings = {
@@ -20,6 +25,7 @@ export const defaults: Settings = {
   showBadge: true,
   imageLayer: true,
   clipThreshold: 0.6,
+  waitForClip: true,
 };
 
 const bool = (value: unknown, fallback: boolean) =>
@@ -49,6 +55,7 @@ export function parseSettings(value: unknown): Settings {
       : [],
     showBadge: bool(data.showBadge, defaults.showBadge),
     imageLayer: bool(data.imageLayer, defaults.imageLayer),
+    waitForClip: bool(data.waitForClip, defaults.waitForClip),
     clipThreshold:
       Number.isFinite(threshold) && threshold > 0 && threshold < 1
         ? threshold

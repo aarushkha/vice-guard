@@ -23,7 +23,9 @@ export async function saveBlocklist(list: Blocklist): Promise<void> {
 
 export async function readAudit(): Promise<AuditEntry[]> {
   const result = await browser.storage.local.get('audit');
-  return pruneAudit(Array.isArray(result.audit) ? (result.audit as AuditEntry[]) : []);
+  return pruneAudit(
+    Array.isArray(result.audit) ? (result.audit as AuditEntry[]) : [],
+  );
 }
 
 export function watchStorage(

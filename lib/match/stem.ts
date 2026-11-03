@@ -32,12 +32,7 @@ export function editDistance(a: string, b: string, limit = 1): number {
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       let value = Math.min(prev[j]! + 1, row[j - 1]! + 1, prev[j - 1]! + cost);
-      if (
-        i > 1 &&
-        j > 1 &&
-        a[i - 1] === b[j - 2] &&
-        a[i - 2] === b[j - 1]
-      )
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
         value = Math.min(value, prev2[j - 2]! + 1);
       row.push(value);
       best = Math.min(best, value);

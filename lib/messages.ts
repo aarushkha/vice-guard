@@ -9,12 +9,15 @@ export type ContentMessage =
   | { type: 'vg:audit'; entries: AuditEntry[] }
   | { type: 'vg:sources'; observations: Observation[] }
   | { type: 'vg:image'; url: string }
+  /** CLIP's verdict for an image whose vg:image answer had clipPending. */
+  | { type: 'vg:clip'; url: string }
   /** These images' cards are now on screen: analyse them before prefetches. */
   | { type: 'vg:prioritize'; urls: string[] };
 
 /** Background → offscreen document. */
 export type OffscreenMessage =
   | { target: 'offscreen'; type: 'vg:analyze'; url: string }
+  | { target: 'offscreen'; type: 'vg:clip'; url: string }
   | { target: 'offscreen'; type: 'vg:prioritize'; urls: string[] };
 export type OffscreenStatus = {
   target: 'background';

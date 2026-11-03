@@ -52,7 +52,10 @@ export function parseBlocklist(value: unknown): Blocklist {
       key,
       name: typeof entry.name === 'string' ? entry.name : key,
       blocked: entry.blocked === true,
-      origin: entry.origin === 'seed' || entry.origin === 'user' ? entry.origin : 'auto',
+      origin:
+        entry.origin === 'seed' || entry.origin === 'user'
+          ? entry.origin
+          : 'auto',
       history: Array.isArray(entry.history)
         ? entry.history.filter((n) => n === 0 || n === 1).slice(-WINDOW)
         : [],
@@ -71,7 +74,11 @@ export interface Observation {
  * Merges observed verdicts into the list and blocks sources whose recent
  * titles are mostly GTA 6. Entries the user set by hand never change.
  */
-export function learn(list: Blocklist, observations: Observation[], now = Date.now()) {
+export function learn(
+  list: Blocklist,
+  observations: Observation[],
+  now = Date.now(),
+) {
   const added: ChannelEntry[] = [];
   for (const { source, hits } of observations) {
     const entry = (list[source.key] ??= {
@@ -85,8 +92,13 @@ export function learn(list: Blocklist, observations: Observation[], now = Date.n
     if (entry.origin === 'user') continue;
     entry.history = [...entry.history, ...hits].slice(-WINDOW);
     entry.updated = now;
-    const share = entry.history.reduce((a, b) => a + b, 0) / entry.history.length;
-    if (!entry.blocked && entry.history.length >= MIN_SEEN && share >= BLOCK_SHARE) {
+    const share =
+      entry.history.reduce((a, b) => a + b, 0) / entry.history.length;
+    if (
+      !entry.blocked &&
+      entry.history.length >= MIN_SEEN &&
+      share >= BLOCK_SHARE
+    ) {
       entry.blocked = true;
       added.push(entry);
     }
