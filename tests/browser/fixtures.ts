@@ -45,10 +45,16 @@ async function startImageServer() {
       const example = /VG_(g\d{4})/.exec(url)?.[1];
       const rendered =
         example && path.resolve('tests/eval/.cache/thumbs', `${example}.png`);
+      // Never fall back to a plain image: it would look like an OCR miss.
+      if (rendered && !existsSync(rendered)) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
       setTimeout(() => {
         response.writeHead(200, { 'content-type': 'image/png' });
         response.end(
-          rendered && existsSync(rendered)
+          rendered
             ? readFileSync(rendered)
             : fixture(/gta/i.test(url) ? 'thumb-gta.png' : 'thumb-plain.png'),
         );

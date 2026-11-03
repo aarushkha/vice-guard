@@ -4,7 +4,14 @@
 // Checks recall, false positives, flashes (any painted frame of a card that
 // must be hidden) and that grids reflow without gaps. Writes
 // tests/eval/sites-report.md. Run: npm run build && npx playwright test sites
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { thumbPath } from '../eval/thumbs';
 import type { Page } from '@playwright/test';
 import {
   blankTimes,
@@ -75,7 +82,8 @@ const baseFixtures: SiteFixture[] = [
       return `<ytd-rich-item-renderer ${expectAttr(e)}><div id="content"><yt-lockup-view-model>
         <a href="/watch?v=${id}"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" style="width:100%;aspect-ratio:16/9;display:block"></a>
         <h3><a href="/watch?v=${id}"><span>${esc(e.text)}</span></a></h3>
-        <a href="/@${handle(i)}">Creator ${i}</a></yt-lockup-view-model></div></ytd-rich-item-renderer>`;
+        <a href="/@${handle(i)}">Creator ${i}</a></yt-lockup-view-model></div>
+        <div id="menu"></div></ytd-rich-item-renderer>`;
     },
     page: (
       cards,
@@ -254,6 +262,13 @@ for (const fixture of fixtures) {
     extension: { context, background },
   }) => {
     test.setTimeout(300_000);
+    const missing = fixture.examples.filter(
+      (e) => e.thumb && !existsSync(thumbPath(e.id!)),
+    );
+    expect(
+      missing.map((e) => e.id),
+      'eval thumbnails are rendered (global setup)',
+    ).toEqual([]);
     const cards = fixture.examples.map((e, i) => fixture.card(e, i));
     const initial = Math.ceil(cards.length * 0.4);
     const start = Date.now();

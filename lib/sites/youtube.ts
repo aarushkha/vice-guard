@@ -42,6 +42,15 @@ const otherCards = [
   '.sbsb_c',
 ];
 
+/** Grid and list cells that wrap a single video lockup. */
+const cells = [
+  'ytd-rich-item-renderer',
+  'ytd-video-renderer',
+  'ytd-compact-video-renderer',
+  'ytd-grid-video-renderer',
+  'ytd-reel-item-renderer',
+].join(',');
+
 function videoId(card: HTMLElement): string | undefined {
   for (const link of card.querySelectorAll<HTMLAnchorElement>(
     'a[href*="/watch?"], a[href*="/shorts/"]',
@@ -64,7 +73,9 @@ function skipAutoplay(doc: Document) {
 }
 
 function pageChannel(location: Location): Source | undefined {
-  const match = /^\/(@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)/.exec(location.pathname);
+  const match = /^\/(@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)/.exec(
+    location.pathname,
+  );
   if (!match) return undefined;
   return { key: `youtube:${match[1]!.toLowerCase()}`, name: match[1]! };
 }
@@ -78,7 +89,9 @@ export const youtube: SiteModule = {
     // The autoplay countdown and end cards keep titles in attributes.
     return [
       card.getAttribute('aria-label'),
-      card.querySelector('[data-tooltip-text]')?.getAttribute('data-tooltip-text'),
+      card
+        .querySelector('[data-tooltip-text]')
+        ?.getAttribute('data-tooltip-text'),
     ]
       .filter(Boolean)
       .join(' ');
@@ -99,7 +112,8 @@ export const youtube: SiteModule = {
       'a[href^="/@"], a[href^="/channel/"], a[href^="/c/"]',
     );
     const href = link?.getAttribute('href');
-    const handle = href && /^\/(@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)/.exec(href)?.[1];
+    const handle =
+      href && /^\/(@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)/.exec(href)?.[1];
     if (handle)
       return {
         key: `youtube:${handle.toLowerCase()}`,
@@ -109,7 +123,8 @@ export const youtube: SiteModule = {
       .querySelector('[aria-label^="Go to channel "]')
       ?.getAttribute('aria-label')
       ?.slice('Go to channel '.length);
-    if (label) return { key: `youtube:name:${label.toLowerCase()}`, name: label };
+    if (label)
+      return { key: `youtube:name:${label.toLowerCase()}`, name: label };
     if (card.matches('ytd-comment-thread-renderer, ytd-comment-view-model'))
       return undefined;
     return pageChannel(location);
@@ -142,10 +157,18 @@ export const youtube: SiteModule = {
     /* A hidden Shorts player keeps its slot so the scroller does not jump. */
     ${activeShort}[data-vg-hit] { display: block !important; visibility: hidden !important; }
   `,
-  hideTarget: (card) =>
-    card.matches(activeShort)
-      ? card
-      : collapseWrappers(card, 'body, #contents, #items, ytd-item-section-renderer'),
+  hideTarget(card) {
+    if (card.matches(activeShort)) return card;
+    // Remove the whole grid or list cell. Walking up sole-child wrappers is
+    // not enough: live cells hold extra children (menus, overlays), and
+    // stopping inside the cell leaves an empty slot in the grid.
+    const cell = card.closest<HTMLElement>(cells);
+    if (cell) return cell;
+    return collapseWrappers(
+      card,
+      'body, #contents, #items, ytd-item-section-renderer',
+    );
+  },
   onHide(card) {
     const doc = card.ownerDocument;
     if (card.matches(upNext)) skipAutoplay(doc);

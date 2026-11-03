@@ -9,17 +9,17 @@ their verdict (p50 / p95 / max over cards that were blank on screen at all).
 "Timeout hides" are cards removed by the 10 s fail-closed image timeout.
 Pages scroll one screen per 80 ms (far faster than a person) unless noted.
 
-| Page                            | Cards |          Recall | False positives | Flashes | Grid gaps |                  Blank on screen | Timeout hides |   Time |
-| ------------------------------- | ----: | --------------: | --------------: | ------: | --------: | -------------------------------: | ------------: | -----: |
-| youtube                         |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |  231 cards: 259 / 3976 / 4361 ms |             0 | 43.5 s |
-| youtube-search                  |   164 |   97.8% (87/89) |     0.0% (0/75) |       0 |       n/a |  107 cards: 216 / 1167 / 2392 ms |             0 | 24.2 s |
-| reddit                          |   135 |  100.0% (79/79) |     0.0% (0/56) |       0 |       n/a |                             none |             0 |  6.1 s |
-| x                               |   118 |  100.0% (76/76) |     0.0% (0/42) |       0 |       n/a |                             none |             0 |  5.6 s |
-| google                          |   108 |  100.0% (60/60) |     0.0% (0/48) |       0 |       n/a |                             none |             0 |  5.7 s |
-| google-news                     |   120 |  100.0% (64/64) |     0.0% (0/56) |       0 |       n/a |   62 cards: 212 / 1488 / 1619 ms |             0 | 15.2 s |
-| article (tier 2)                |    77 |  100.0% (44/44) |     0.0% (0/33) |       0 |       n/a |                             none |             0 |  5.2 s |
-| youtube (one screen per second) |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 | 201 cards: 1067 / 4251 / 5039 ms |             0 | 43.3 s |
-| youtube (one screen per 2.5 s)  |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |  111 cards: 584 / 4478 / 5191 ms |             0 | 77.0 s |
+| Page                            | Cards |          Recall | False positives | Flashes | Grid gaps |                 Blank on screen | Timeout hides |   Time |
+| ------------------------------- | ----: | --------------: | --------------: | ------: | --------: | ------------------------------: | ------------: | -----: |
+| youtube                         |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 | 243 cards: 271 / 2590 / 4234 ms |             0 | 40.5 s |
+| youtube-search                  |   164 |   97.8% (87/89) |     0.0% (0/75) |       0 |       n/a | 107 cards: 232 / 1065 / 2287 ms |             0 | 23.6 s |
+| reddit                          |   135 |  100.0% (79/79) |     0.0% (0/56) |       0 |       n/a |       12 cards: 39 / 39 / 39 ms |             0 |  6.1 s |
+| x                               |   118 |  100.0% (76/76) |     0.0% (0/42) |       0 |       n/a |                            none |             0 |  5.7 s |
+| google                          |   108 |  100.0% (60/60) |     0.0% (0/48) |       0 |       n/a |       10 cards: 27 / 27 / 27 ms |             0 |  5.7 s |
+| google-news                     |   120 |  100.0% (64/64) |     0.0% (0/56) |       0 |       n/a |  56 cards: 233 / 1485 / 1604 ms |             0 | 13.8 s |
+| article (tier 2)                |    77 |  100.0% (44/44) |     0.0% (0/33) |       0 |       n/a |                            none |             0 |  5.2 s |
+| youtube (one screen per second) |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 | 211 cards: 950 / 4107 / 4877 ms |             0 | 41.3 s |
+| youtube (one screen per 2.5 s)  |   327 | 97.1% (170/175) |    0.0% (0/152) |       0 |         0 |  78 cards: 552 / 4850 / 5175 ms |             0 | 77.1 s |
 
 Hide reasons (audit log, includes timeout hides that were later undone):
 
