@@ -248,6 +248,7 @@ interface Result {
   tn: number;
   flashes: string[];
   blank: number[];
+  firstScreen: number;
   gaps?: number;
   rules: Record<string, number>;
   ms: number;
@@ -279,6 +280,30 @@ for (const fixture of fixtures) {
         streamScript(fixture.container, cards.slice(initial)),
     );
     await page.setViewportSize({ width: 1280, height: 900 });
+    // Time from navigation until every card on the first screen is judged.
+    const firstScreen = await page
+      .waitForFunction(
+        () => {
+          const pending = [
+            ...document.querySelectorAll<HTMLElement>('[data-expect]'),
+          ].some((card) => {
+            const box = card.getBoundingClientRect();
+            if (
+              box.height === 0 ||
+              box.top > innerHeight ||
+              card.closest('[data-vg-hit]')
+            )
+              return false;
+            return [card, ...card.querySelectorAll<HTMLElement>('*')].some(
+              (node) => getComputedStyle(node).visibility === 'hidden',
+            );
+          });
+          return pending ? false : Math.round(performance.now());
+        },
+        null,
+        { timeout: 30_000, polling: 'raf' },
+      )
+      .then((handle) => handle.jsonValue() as Promise<number>);
     await settle(page, fixture.scrollStepMs);
     const result = await outcomes(page);
     // A flash is a card painted and then hidden. Painted cards that stay
@@ -318,6 +343,7 @@ for (const fixture of fixtures) {
         ...result,
         flashes: seen,
         blank,
+        firstScreen,
         gaps,
         rules,
         ms: Date.now() - start,
@@ -357,13 +383,15 @@ function writeReport() {
     '"Blank on screen" is how long such slots were inside the viewport before',
     'their verdict (p50 / p95 / max over cards that were blank on screen at all).',
     '"Timeout hides" are cards removed by the 10 s fail-closed image timeout.',
+    '"First screen" is from navigation until every card in the first viewport is judged.',
+    'Thumbnails arrive with 90-350 ms of simulated network delay.',
     'Pages scroll one screen per 80 ms (far faster than a person) unless noted.',
     '',
-    '| Page | Cards | Recall | False positives | Flashes | Grid gaps | Blank on screen | Timeout hides | Time |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Page | Cards | Recall | False positives | Flashes | Grid gaps | First screen | Blank on screen | Timeout hides | Time |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ...results.map(
       (r) =>
-        `| ${r.name} | ${r.tp + r.fn + r.fp + r.tn} | ${pct(r.tp, r.tp + r.fn)} (${r.tp}/${r.tp + r.fn}) | ${pct(r.fp, r.fp + r.tn)} (${r.fp}/${r.fp + r.tn}) | ${r.flashes.length} | ${r.gaps ?? 'n/a'} | ${r.blank.length ? `${r.blank.length} cards: ${q(r.blank, 0.5)} / ${q(r.blank, 0.95)} / ${q(r.blank, 1)} ms` : 'none'} | ${r.rules['image-timeout'] ?? 0} | ${(r.ms / 1000).toFixed(1)} s |`,
+        `| ${r.name} | ${r.tp + r.fn + r.fp + r.tn} | ${pct(r.tp, r.tp + r.fn)} (${r.tp}/${r.tp + r.fn}) | ${pct(r.fp, r.fp + r.tn)} (${r.fp}/${r.fp + r.tn}) | ${r.flashes.length} | ${r.gaps ?? 'n/a'} | ${(r.firstScreen / 1000).toFixed(1)} s | ${r.blank.length ? `${r.blank.length} cards: ${q(r.blank, 0.5)} / ${q(r.blank, 0.95)} / ${q(r.blank, 1)} ms` : 'none'} | ${r.rules['image-timeout'] ?? 0} | ${(r.ms / 1000).toFixed(1)} s |`,
     ),
     '',
     'Hide reasons (audit log, includes timeout hides that were later undone):',

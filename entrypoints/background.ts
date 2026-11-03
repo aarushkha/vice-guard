@@ -150,6 +150,8 @@ export default defineBackground(() => {
       return true;
     }
     if (message.type === 'vg:prioritize') {
+      // Sent even for requests still in the cache lookup; the offscreen
+      // document keeps the priority until the request arrives.
       const urls = message.urls.filter((url) => inflight.has(url));
       if (urls.length)
         void browser.runtime

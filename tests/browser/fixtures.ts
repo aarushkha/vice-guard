@@ -40,7 +40,12 @@ async function startImageServer() {
     { key: fixture('test-key.pem'), cert: fixture('test-cert.pem') },
     (request, response) => {
       const url = request.url ?? '';
-      const delay = /slow/i.test(url) ? 4000 : 0;
+      // Like i.ytimg.com from a home connection: 90-350 ms per image,
+      // fixed per URL so runs are comparable. VG_FAST_IMAGES=1 turns it off.
+      let hash = 0;
+      for (const char of url) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+      const network = process.env.VG_FAST_IMAGES ? 0 : 90 + (hash % 261);
+      const delay = /slow/i.test(url) ? 4000 : network;
       // "VG_g0603" in a URL serves that eval example's rendered thumbnail.
       const example = /VG_(g\d{4})/.exec(url)?.[1];
       const rendered =

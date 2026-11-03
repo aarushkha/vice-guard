@@ -133,13 +133,20 @@ function clip(pixels: ImageData): Promise<{ score?: number; error?: string }> {
   });
 }
 
-async function analyze(url: string): Promise<ImageResult> {
+interface Loaded {
+  canvas: OffscreenCanvas;
+  pixels: ImageData;
+  fetchMs: number;
+}
+
+/** Downloads and decodes one image, scaled for OCR. */
+async function download(url: string): Promise<Loaded> {
   const start = performance.now();
   const response = await fetch(url, {
     credentials: 'omit',
     cache: 'force-cache',
   });
-  if (!response.ok) return { error: `HTTP ${response.status}` };
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const bitmap = await createImageBitmap(await response.blob());
   // OCR reads small thumbnail text better upscaled; CLIP resizes to 256 itself.
   const scale = Math.min(
@@ -154,7 +161,15 @@ async function analyze(url: string): Promise<ImageResult> {
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
   bitmap.close();
-  const fetched = since(start);
+  return { canvas, pixels, fetchMs: since(start) };
+}
+
+async function analyze({
+  canvas,
+  pixels,
+  fetchMs,
+}: Loaded): Promise<ImageResult> {
+  const start = performance.now();
   const timed = async <T>(task: Promise<T>): Promise<[T, number]> => {
     const begin = performance.now();
     const value = await task;
@@ -169,29 +184,66 @@ async function analyze(url: string): Promise<ImageResult> {
     ocr: text,
     clip: vision.score,
     error: undefined,
-    timing: { fetch: fetched, ocr: ocrMs, clip: clipMs, total: since(start) },
+    timing: {
+      fetch: fetchMs,
+      ocr: ocrMs,
+      clip: clipMs,
+      total: fetchMs + since(start),
+    },
   };
 }
 
-// Jobs run CLIP_WORKERS at a time. Images whose cards are on screen go
-// first, most recently shown first, so cards the user already scrolled past
-// do not hold up the ones in view. The rest are prefetches, in order.
+// Downloads start as soon as a request arrives (network time would otherwise
+// sit inside a compute slot); analysis runs CLIP_WORKERS at a time on images
+// that have arrived. Cards on screen go first, most recently shown first, so
+// cards the user already scrolled past do not hold up the ones in view.
+const MAX_DOWNLOADS = 8;
 interface Job {
   url: string;
   /** When the card came on screen; 0 while it is only a prefetch. */
   visibleAt: number;
+  started: boolean;
+  loaded?: Loaded;
+  failed?: string;
   resolve(result: ImageResult): void;
 }
 const queue: Job[] = [];
+/** Priorities that arrived before their request. */
+const shownEarly = new Map<string, number>();
 let running = 0;
+let downloading = 0;
+const byPriority = (a: Job, b: Job) => b.visibleAt - a.visibleAt;
+
 function pump() {
-  while (running < CLIP_WORKERS && queue.length) {
-    let index = 0;
-    for (let i = 1; i < queue.length; i++)
-      if (queue[i]!.visibleAt > queue[index]!.visibleAt) index = i;
-    const job = queue.splice(index, 1)[0]!;
+  // Downloads, highest priority first.
+  for (const job of [...queue].sort(byPriority)) {
+    if (downloading >= MAX_DOWNLOADS) break;
+    if (job.started) continue;
+    job.started = true;
+    downloading++;
+    download(job.url)
+      .then(
+        (loaded) => (job.loaded = loaded),
+        (error: unknown) => (job.failed = String(error)),
+      )
+      .finally(() => {
+        downloading--;
+        pump();
+      });
+  }
+  // Analysis, highest priority first among images that have arrived.
+  while (running < CLIP_WORKERS) {
+    const job = queue
+      .filter((entry) => entry.loaded || entry.failed)
+      .sort(byPriority)[0];
+    if (!job) break;
+    queue.splice(queue.indexOf(job), 1);
+    if (job.failed) {
+      job.resolve({ error: job.failed });
+      continue;
+    }
     running++;
-    analyze(job.url)
+    analyze(job.loaded!)
       .catch((error: unknown) => ({ error: String(error) }))
       .then((result) => {
         running--;
@@ -206,11 +258,24 @@ browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
   if (message.target !== 'offscreen') return;
   if (message.type === 'vg:prioritize') {
     const now = performance.now();
-    for (const job of queue)
-      if (message.urls.includes(job.url)) job.visibleAt = now;
+    for (const url of message.urls) {
+      const job = queue.find((entry) => entry.url === url);
+      if (job) job.visibleAt = now;
+      // The request itself can arrive after this (the background checks its
+      // cache first); remember the priority for it.
+      else shownEarly.set(url, now);
+    }
+    pump();
     return;
   }
-  queue.push({ url: message.url, visibleAt: 0, resolve: sendResponse });
+  const early = shownEarly.get(message.url) ?? 0;
+  shownEarly.delete(message.url);
+  queue.push({
+    url: message.url,
+    visibleAt: early,
+    started: false,
+    resolve: sendResponse,
+  });
   pump();
   return true;
 });
