@@ -18,3 +18,5 @@ public/models/
 public/ort/
 public/tesseract/
 tests/eval/.cache/
+# Written by npx playwright test sites
+tests/eval/sites-report.md
