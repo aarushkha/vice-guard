@@ -19,7 +19,7 @@ import {
   RawImage,
   env,
 } from '@huggingface/transformers';
-import { CLIP_MODEL } from '../../lib/image/clip-model';
+import { CLIP_DTYPE, CLIP_MODEL } from '../../lib/image/clip-files';
 import sharp from 'sharp';
 import {
   brightTextMask,
@@ -143,7 +143,7 @@ env.allowRemoteModels = false;
 env.localModelPath = 'public/models/';
 const processor = await AutoProcessor.from_pretrained(CLIP_MODEL);
 const model = await CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, {
-  dtype: 'q8',
+  dtype: CLIP_DTYPE,
 });
 
 const ocr: Record<string, string> = {};

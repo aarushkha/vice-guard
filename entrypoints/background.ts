@@ -142,11 +142,15 @@ export default defineBackground(() => {
       return merged;
     });
     late.set(url, full);
+    clipOutstanding++;
+    void full.finally(() => clipOutstanding--);
     void full.finally(() => setTimeout(() => late.delete(url), 60_000));
     return result;
   }
   /** Complete results (with CLIP) still being finished, by URL. */
   const late = new Map<string, Promise<ImageResult>>();
+  /** CLIP verdicts still being computed (diagnostics). */
+  let clipOutstanding = 0;
   async function clipResult(url: string): Promise<ImageResult> {
     return (
       (await late.get(url)) ??
@@ -169,7 +173,11 @@ export default defineBackground(() => {
       return;
     }
     if (message.type === 'vg:status') {
-      sendResponse({ engine: engineStatus, cached: cache.size() });
+      sendResponse({
+        engine: engineStatus,
+        cached: cache.size(),
+        clipOutstanding,
+      });
       return;
     }
     if (message.type === 'vg:image') {

@@ -6,10 +6,12 @@ import {
 } from '@huggingface/transformers';
 import { gtaProbability, type PromptEmbeddings } from './score';
 
-export const CLIP_MODEL = 'mobileclip_s0';
+import { CLIP_DTYPE, CLIP_MODEL } from './clip-files';
+
+export { CLIP_DTYPE, CLIP_MODEL, VISION_FILE } from './clip-files';
 
 /**
- * Loads MobileCLIP-S0's int8 vision encoder from the extension package.
+ * Loads MobileCLIP-S0's fp16 vision encoder from the extension package.
  * `base` is where models/ and ort/ are served from; remote fetches are off.
  */
 export async function loadClip(base: string, prompts: PromptEmbeddings) {
@@ -29,7 +31,7 @@ export async function loadClip(base: string, prompts: PromptEmbeddings) {
   const [processor, model] = await Promise.all([
     AutoProcessor.from_pretrained(CLIP_MODEL),
     CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, {
-      dtype: 'q8',
+      dtype: CLIP_DTYPE,
       device: 'wasm',
     }),
   ]);
