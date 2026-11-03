@@ -24,10 +24,11 @@ export function confidentText(data: RecognizeData, minConfidence = 0): string {
 
 /**
  * Thumbnails are upscaled this much before OCR. Measured on the eval set
- * (480x360 thumbnails): 1.5x reads more than 2x (95.5% vs 94.0% recall with
- * the title) at 56% of the pixels.
+ * (480 px wide thumbnails, recall with the title): 1.0x 88.1%, 1.25x 94.0%,
+ * 1.5x 94.0% at 30% more OCR time, 2x 94.0%. Smaller sources (320 px
+ * mqdefault) lose recall at any scale.
  */
-export const OCR_SCALE = 1.5;
+export const OCR_SCALE = 1.25;
 /** Longest side after scaling, so large images do not cost more. */
 export const OCR_MAX_SIDE = 900;
 

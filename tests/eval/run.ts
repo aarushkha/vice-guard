@@ -133,6 +133,51 @@ for (const [title, rows] of [
     '',
   );
 }
+// Real screenshots from tests/eval/images-real/{positive,negative}/.
+const realIds = Object.keys(clip).filter((id) => id.startsWith('real:'));
+if (realIds.length) {
+  const positives = realIds.filter((id) => id.startsWith('real:positive/'));
+  const negatives = realIds.filter((id) => id.startsWith('real:negative/'));
+  const textHit = (id: string) =>
+    !!ocr[id] && classify(ocr[id]!, defaults, { layer: 'ocr' }).hit;
+  const pct = (n: number, d: number) =>
+    d ? `${((100 * n) / d).toFixed(1)}%` : 'n/a';
+  lines.push(
+    '',
+    `## Real screenshots (${positives.length} positive, ${negatives.length} negative)`,
+    '',
+    'Image only, no title. "Either" is what the extension does: hidden if the',
+    'thumbnail text reads as GTA 6 or CLIP scores at or above the sensitivity.',
+    '',
+    '| CLIP sensitivity | CLIP catches | Either catches | Negatives wrongly blocked |',
+    '| ---: | ---: | ---: | ---: |',
+  );
+  for (const threshold of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
+    const caught = positives.filter((id) => clip[id]! >= threshold).length;
+    const either = positives.filter(
+      (id) => clip[id]! >= threshold || textHit(id),
+    ).length;
+    const wrong = negatives.filter(
+      (id) => clip[id]! >= threshold || textHit(id),
+    ).length;
+    lines.push(
+      `| ${threshold.toFixed(1)}${threshold === defaults.clipThreshold ? ' (default)' : ''} | ${pct(caught, positives.length)} | ${pct(either, positives.length)} | ${pct(wrong, negatives.length)} |`,
+    );
+  }
+  lines.push(
+    '',
+    `Thumbnail text alone catches ${pct(positives.filter(textHit).length, positives.length)}.`,
+    '',
+    'Lowest-scoring positives (what CLIP misses):',
+    ...positives
+      .sort((a, b) => clip[a]! - clip[b]!)
+      .slice(0, 10)
+      .map(
+        (id) =>
+          `- ${id.slice(5)}: ${clip[id]!.toFixed(2)}${textHit(id) ? ' (caught by text)' : ''}`,
+      ),
+  );
+}
 const report = lines.join('\n');
 writeFileSync('tests/eval/report.md', report);
 console.log(report);

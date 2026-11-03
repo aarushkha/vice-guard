@@ -48,6 +48,8 @@ export interface EngineDeps {
  * clean card that is merely slow, so this only guards against a stuck engine.
  */
 export const IMAGE_TIMEOUT_MS = 10_000;
+/** A card that keeps changing is re-read in full at most this often. */
+export const RESCAN_MS = 1000;
 const ATTRIBUTES = [
   'title',
   'aria-label',
@@ -71,6 +73,38 @@ interface CardState {
   urls: string[];
   title: string;
   shell?: boolean;
+}
+
+/**
+ * Timers, view and like counters ("0:13", "1,235 likes", "2h"): when one
+ * number replaces another, the card's meaning did not change, and on video
+ * feeds this happens several times a second per card.
+ */
+const UNIT =
+  'k|m|b|likes?|views?|comments?|replies|reply|shares?|reposts?|ago|[smhdwy]|min|mins|sec|secs|hours?|minutes?|seconds?|days?|weeks?|months?|years?|watching';
+const SEPARATOR = '[\\s\\d:.,/%+·•\\-–]*';
+const COUNTER = new RegExp(
+  `^${SEPARATOR}(?:(?:${UNIT})\\b${SEPARATOR}){0,3}$`,
+  'i',
+);
+const isCounter = (text: string | null | undefined) =>
+  !!text && /\d/.test(text) && COUNTER.test(text.trim());
+
+export function counterOnly(record: MutationRecord): boolean {
+  if (record.type === 'characterData')
+    return isCounter(record.oldValue) && isCounter(record.target.textContent);
+  if (record.type !== 'childList') return false;
+  const nodes = [...record.addedNodes, ...record.removedNodes];
+  return (
+    record.addedNodes.length > 0 &&
+    record.removedNodes.length > 0 &&
+    nodes.every(
+      (node) =>
+        (node.nodeType === Node.TEXT_NODE ||
+          (node instanceof Element && node.childElementCount === 0)) &&
+        isCounter(node.textContent),
+    )
+  );
 }
 
 export function startEngine(
@@ -372,10 +406,59 @@ export function startEngine(
     }
   });
 
+  /** New subtrees: every card inside them is scanned. */
   const roots = new Set<Node>();
+  /** Changed nodes: only the card that contains them is rescanned. */
+  const touched = new Set<Node>();
+  /** Text that changed in each already-judged card since its last scan. */
+  const changes = new Map<HTMLElement, string[]>();
+  const lastScan = new WeakMap<HTMLElement, number>();
+  /** Cards whose image changed: checked at once, never deferred. */
+  const urgentCards = new Set<HTMLElement>();
+  const deferred = new Map<HTMLElement, ReturnType<typeof setTimeout>>();
+
+  const elementOf = (node: Node) =>
+    node instanceof Element ? node : node.parentElement;
+  /** The card a changed node belongs to (itself included). */
+  function cardOf(node: Node): HTMLElement | null {
+    const element = elementOf(node);
+    if (!element?.isConnected) return null;
+    const match = element.closest<HTMLElement>(site.cards);
+    if (match) return toCard(match);
+    return site.card && element instanceof HTMLElement
+      ? site.card(element)
+      : null;
+  }
+
+  function rescanLater(card: HTMLElement) {
+    if (deferred.has(card)) return;
+    const wait = Math.max(
+      0,
+      RESCAN_MS - (performance.now() - (lastScan.get(card) ?? 0)),
+    );
+    deferred.set(
+      card,
+      setTimeout(() => {
+        deferred.delete(card);
+        changes.delete(card);
+        if (settings.enabled) judge(card);
+      }, wait),
+    );
+  }
+
+  function judge(card: HTMLElement) {
+    lastScan.set(card, performance.now());
+    changes.delete(card);
+    const timer = deferred.get(card);
+    if (timer) (clearTimeout(timer), deferred.delete(card));
+    scan(card);
+  }
+
   function process() {
     if (!settings.enabled) {
       roots.clear();
+      touched.clear();
+      changes.clear();
       return;
     }
     const cards = new Set<HTMLElement>();
@@ -385,26 +468,83 @@ export function startEngine(
       if (card) cards.add(card);
     };
     for (const root of roots) {
-      const element = root instanceof Element ? root : root.parentElement;
+      const element = elementOf(root);
       if (!element?.isConnected) continue;
       if (element.matches(site.cards)) add(element);
       for (const match of element.querySelectorAll(site.cards)) add(match);
       add(element.parentElement?.closest(site.cards) ?? null);
       if (site.card) add(element);
     }
+    for (const node of touched) {
+      const card = cardOf(node);
+      if (card) cards.add(card);
+    }
     roots.clear();
+    touched.clear();
+    const now = performance.now();
+    const urgent = new Set(urgentCards);
+    urgentCards.clear();
     // Inner cards first, so a section sees its items' verdicts.
     const ordered = [...cards].sort((a, b) =>
       a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1,
     );
-    for (const card of ordered) scan(card);
+    for (const card of ordered) {
+      const state = states.get(card);
+      const snippets = changes.get(card);
+      // A judged card that keeps changing (video timers, like counters,
+      // comments loading) is not re-read in full more than once per
+      // RESCAN_MS: its new text is judged on its own right away, and the
+      // whole card, for matches that span old and new text, shortly after.
+      if (
+        state?.status === 'ok' &&
+        !urgent.has(card) &&
+        now - (lastScan.get(card) ?? 0) < RESCAN_MS
+      ) {
+        changes.delete(card);
+        // No snippet means text was only removed, which cannot add a match.
+        if (snippets && classify(snippets.join(' | '), settings).hit)
+          judge(card);
+        else rescanLater(card);
+        continue;
+      }
+      judge(card);
+    }
+  }
+
+  const SNIPPET_LIMIT = 4000;
+  function noteChange(node: Node, text: string | null | undefined) {
+    if (!text?.trim()) return;
+    const card = cardOf(node);
+    if (!card || states.get(card)?.status !== 'ok') return;
+    const list = changes.get(card) ?? [];
+    changes.set(card, list);
+    if (list.join('').length < SNIPPET_LIMIT)
+      list.push(text.slice(0, SNIPPET_LIMIT));
   }
 
   const observer = new MutationObserver((records) => {
     for (const record of records) {
+      if (counterOnly(record)) continue;
       if (record.type === 'childList')
-        for (const node of record.addedNodes) roots.add(node);
-      roots.add(record.target);
+        for (const node of record.addedNodes) {
+          roots.add(node);
+          noteChange(record.target, node.textContent);
+        }
+      if (record.type === 'characterData')
+        noteChange(record.target, record.target.textContent);
+      if (
+        record.type === 'attributes' &&
+        ['src', 'poster'].includes(record.attributeName!)
+      ) {
+        const card = cardOf(record.target);
+        if (card) urgentCards.add(card);
+      }
+      if (record.type === 'attributes')
+        noteChange(
+          record.target,
+          (record.target as Element).getAttribute(record.attributeName!),
+        );
+      touched.add(record.target);
     }
     process();
   });
@@ -414,6 +554,7 @@ export function startEngine(
       childList: true,
       subtree: true,
       characterData: true,
+      characterDataOldValue: true,
       attributes: true,
       attributeFilter: ATTRIBUTES,
     });
@@ -439,6 +580,10 @@ export function startEngine(
     states = new WeakMap();
     imageRequests.clear();
     clipRequests.clear();
+    for (const timer of deferred.values()) clearTimeout(timer);
+    deferred.clear();
+    changes.clear();
+    urgentCards.clear();
     reportCount();
     if (settings.enabled) {
       roots.add(doc.documentElement);

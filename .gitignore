@@ -20,3 +20,5 @@ public/tesseract/
 tests/eval/.cache/
 # Written by npx playwright test sites
 tests/eval/sites-report.md
+# Your own screenshots for scoring CLIP; never committed
+tests/eval/images-real/

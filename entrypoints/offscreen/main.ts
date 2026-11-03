@@ -9,6 +9,7 @@ import {
   ocrParameters,
   recognizeOptions,
 } from '../../lib/image/ocr';
+import { letterbox } from '../../lib/image/letterbox';
 import type { EngineStatus, OffscreenMessage } from '../../lib/messages';
 
 // Everything loads from the extension package; nothing is fetched remotely
@@ -148,13 +149,29 @@ interface Loaded {
   fetchMs: number;
 }
 
-function scaled(bitmap: ImageBitmap, scale: number) {
+interface Crop {
+  y: number;
+  width: number;
+  height: number;
+}
+
+function scaled(bitmap: ImageBitmap, crop: Crop, scale: number) {
   const canvas = new OffscreenCanvas(
-    Math.max(1, Math.round(bitmap.width * scale)),
-    Math.max(1, Math.round(bitmap.height * scale)),
+    Math.max(1, Math.round(crop.width * scale)),
+    Math.max(1, Math.round(crop.height * scale)),
   );
   const context = canvas.getContext('2d', { willReadFrequently: true })!;
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  context.drawImage(
+    bitmap,
+    0,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
   return {
     canvas,
     pixels: context.getImageData(0, 0, canvas.width, canvas.height),
@@ -170,14 +187,28 @@ async function download(url: string): Promise<Loaded> {
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const bitmap = await createImageBitmap(await response.blob());
+  // Cut black letterbox bars (a quarter of a 16:9 video's hqdefault.jpg).
+  const full = scaled(
+    bitmap,
+    { y: 0, width: bitmap.width, height: bitmap.height },
+    1,
+  );
+  const bars = letterbox(full.pixels.data, bitmap.width, bitmap.height);
+  const crop = {
+    y: bars.top,
+    width: bitmap.width,
+    height: bitmap.height - bars.top - bars.bottom,
+  };
   // OCR reads small thumbnail text better upscaled.
   const { canvas, pixels } = scaled(
     bitmap,
-    Math.min(OCR_SCALE, OCR_MAX_SIDE / Math.max(bitmap.width, bitmap.height)),
+    crop,
+    Math.min(OCR_SCALE, OCR_MAX_SIDE / Math.max(crop.width, crop.height)),
   );
   const { pixels: clipPixels } = scaled(
     bitmap,
-    Math.min(1, 256 / Math.min(bitmap.width, bitmap.height)),
+    crop,
+    Math.min(1, 256 / Math.min(crop.width, crop.height)),
   );
   bitmap.close();
   return { canvas, pixels, clipPixels, fetchMs: since(start) };
