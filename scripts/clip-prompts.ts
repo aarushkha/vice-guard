@@ -2,7 +2,7 @@
 // Downloads MobileCLIP-S0 from Hugging Face into public/models (vision encoder
 // only is shipped) and precomputes the prompt text embeddings, so the text
 // model never ships and the extension makes no model requests at runtime.
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   AutoTokenizer,
@@ -40,10 +40,36 @@ for (const file of [
   console.log(`Downloaded ${target}`);
 }
 
+// prompts.json is committed. Only rewrite it when the prompts or the text
+// model changed, so running this step never leaves a local change behind
+// (which would block git pull).
+const TEXT_DTYPE = 'fp32';
+const promptsFile = 'lib/image/prompts.json';
+const current = existsSync(promptsFile)
+  ? (JSON.parse(readFileSync(promptsFile, 'utf8')) as {
+      model?: string;
+      textDtype?: string;
+      positive?: { prompt: string }[];
+      negative?: { prompt: string }[];
+    })
+  : {};
+const same = (list: { prompt: string }[] | undefined, prompts: string[]) =>
+  JSON.stringify(list?.map((entry) => entry.prompt)) ===
+  JSON.stringify(prompts);
+if (
+  current.model === repo &&
+  current.textDtype === TEXT_DTYPE &&
+  same(current.positive, positivePrompts) &&
+  same(current.negative, negativePrompts)
+) {
+  console.log(`${promptsFile} is up to date.`);
+  process.exit(0);
+}
+
 const tokenizer = await AutoTokenizer.from_pretrained(repo);
 // Build time only, so the full-precision text model costs nothing to ship.
 const model = await CLIPTextModelWithProjection.from_pretrained(repo, {
-  dtype: 'fp32',
+  dtype: TEXT_DTYPE,
 });
 async function embed(prompts: string[]) {
   const inputs = tokenizer(prompts, {
@@ -65,6 +91,7 @@ writeFileSync(
   'lib/image/prompts.json',
   `${JSON.stringify({
     model: repo,
+    textDtype: TEXT_DTYPE,
     logitScale: 100,
     positive: await embed(positivePrompts),
     negative: await embed(negativePrompts),
