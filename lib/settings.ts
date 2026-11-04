@@ -11,6 +11,11 @@ export interface Settings {
   /** CLIP probability (0-1) at or above which an image counts as GTA 6. */
   clipThreshold: number;
   /**
+   * Which CLIP classifier clipThreshold was chosen for. A retrained
+   * classifier scores differently, so an older choice is reset to the default.
+   */
+  clipCalibration: number;
+  /**
    * Keep a card hidden until CLIP has judged its image too. Off: show it once
    * text and thumbnail text are clean, and remove it if CLIP objects later.
    */
@@ -24,7 +29,10 @@ export const defaults: Settings = {
   keywords: [],
   showBadge: true,
   imageLayer: true,
-  clipThreshold: 0.6,
+  // Held out, with the classifier of calibration 2: blocks 1% of everyday
+  // YouTube thumbnails and catches 85% of GTA VI art (npm run train:clip).
+  clipThreshold: 0.9,
+  clipCalibration: 2,
   waitForClip: true,
 };
 
@@ -57,8 +65,12 @@ export function parseSettings(value: unknown): Settings {
     imageLayer: bool(data.imageLayer, defaults.imageLayer),
     waitForClip: bool(data.waitForClip, defaults.waitForClip),
     clipThreshold:
-      Number.isFinite(threshold) && threshold > 0 && threshold < 1
+      data.clipCalibration === defaults.clipCalibration &&
+      Number.isFinite(threshold) &&
+      threshold > 0 &&
+      threshold < 1
         ? threshold
         : defaults.clipThreshold,
+    clipCalibration: defaults.clipCalibration,
   };
 }

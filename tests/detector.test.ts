@@ -106,3 +106,17 @@ describe('Rockstar negation', () => {
       true,
     ));
 });
+
+describe('CLIP sensitivity', () => {
+  it('resets a sensitivity chosen for an older classifier', () => {
+    expect(parseSettings({ clipThreshold: 0.6 }).clipThreshold).toBe(
+      defaults.clipThreshold,
+    );
+    expect(
+      parseSettings({
+        clipThreshold: 0.75,
+        clipCalibration: defaults.clipCalibration,
+      }).clipThreshold,
+    ).toBe(0.75);
+  });
+});

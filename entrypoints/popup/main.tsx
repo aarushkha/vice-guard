@@ -146,16 +146,19 @@ function SettingsTab({
         <input
           id="threshold"
           type="range"
-          min={0.2}
-          max={0.95}
-          step={0.05}
+          min={0.5}
+          max={0.99}
+          step={0.01}
           disabled={!ready || !settings.imageLayer}
           value={settings.clipThreshold}
           onChange={(event) =>
             update({ clipThreshold: Number(event.target.value) })
           }
         />
-        <p>Lower hides more images (more false positives).</p>
+        <p>
+          Lower hides more images, and more ordinary videos by mistake. At 0.90,
+          about 1 in 100 ordinary YouTube thumbnails is hidden.
+        </p>
       </section>
       <Toggle
         label="Show hidden count on icon"

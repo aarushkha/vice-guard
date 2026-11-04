@@ -11,6 +11,7 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs';
+import { defaults } from '../../lib/settings';
 import { thumbPath } from '../eval/thumbs';
 import type { Page } from '@playwright/test';
 import {
@@ -295,7 +296,11 @@ for (const fixture of fixtures) {
     await background.evaluate(
       (value) =>
         (globalThis as any).chrome.storage.local.set({ settings: value }),
-      { clipThreshold: 0.995, ...fixture.settings },
+      {
+        clipThreshold: 0.995,
+        clipCalibration: defaults.clipCalibration,
+        ...fixture.settings,
+      },
     );
     const page = await openFixture(
       context,

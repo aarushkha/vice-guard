@@ -6,8 +6,8 @@ const MAX_ENTRIES = 5000;
  * Bump whenever OCR or the CLIP classifier changes, so verdicts from the old
  * models are not reused. Older caches are deleted on first use.
  */
-const STORAGE_KEY = 'imageCache3';
-const OLD_KEYS = ['imageCache', 'imageCache2'];
+const STORAGE_KEY = 'imageCache4';
+const OLD_KEYS = ['imageCache', 'imageCache2', 'imageCache3'];
 type Stored = Record<string, [ocr: string, clip: number | null, time: number]>;
 
 /** Sizing parameters that do not change what an image shows. */

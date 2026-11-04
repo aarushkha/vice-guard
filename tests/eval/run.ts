@@ -158,7 +158,7 @@ if (realIds.length) {
     '| CLIP sensitivity | CLIP catches | Either catches | Negatives wrongly blocked |',
     '| ---: | ---: | ---: | ---: |',
   );
-  for (const threshold of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
+  for (const threshold of [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95]) {
     const caught = positives.filter((id) => clip[id]! >= threshold).length;
     const either = positives.filter(
       (id) => clip[id]! >= threshold || textHit(id),
