@@ -145,12 +145,7 @@ const SCALE = 10;
 const L2 = Number(process.env.VG_L2 ?? 1);
 const STEPS = Number(process.env.VG_STEPS ?? 600);
 const NEG_WEIGHT = Number(process.env.VG_NEG ?? 0.5);
-function train(
-  set: Item[],
-  l2 = L2,
-  steps = STEPS,
-  rate = 0.5,
-): Classifier {
+function train(set: Item[], l2 = L2, steps = STEPS, rate = 0.5): Classifier {
   const positives = set.filter((i) => i.label).length;
   const weight = (item: Item) =>
     item.label
@@ -226,8 +221,9 @@ for (const { item, score } of worst)
   console.log(`- ${score.toFixed(2)} ${item.group} ${item.url}`);
 
 // 5. Final classifier on everything.
-if (!process.env.VG_NOWRITE) writeFileSync(
-  'lib/image/classifier.json',
-  `${JSON.stringify(train(usable))}\n`,
-);
+if (!process.env.VG_NOWRITE)
+  writeFileSync(
+    'lib/image/classifier.json',
+    `${JSON.stringify(train(usable))}\n`,
+  );
 console.log('\nWrote lib/image/classifier.json');
