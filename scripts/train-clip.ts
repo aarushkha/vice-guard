@@ -192,16 +192,28 @@ const rate = (list: typeof scored, t: number) =>
   `${((100 * list.filter((s) => s.score >= t).length) / Math.max(1, list.length)).toFixed(1)}%`;
 const art = scored.filter((s) => s.item.label && s.item.kind === 'art');
 const youtube = scored.filter((s) => s.item.label && s.item.kind === 'youtube');
+// Videos of other games look most like GTA 6; everything else is the bulk
+// of a normal feed, where a false block is most noticeable.
+const gameQuery =
+  /game|gameplay|call of duty|fortnite|roblox|elden|cyberpunk|red dead|watch dogs|saints row|mafia|need for speed|forza|crew|spider-man|assassins|far cry|sleeping dogs|hitman|just cause|driver|cities|sims|valorant|league|counter strike|apex|pokemon|zelda|mario|resident evil|last of us|god of war|speedrun|minecraft|san andreas|gta|vice city/;
 const negatives = scored.filter((s) => !s.item.label);
-console.log('\nCross-validated (held-out groups):\n');
+const games = negatives.filter((s) => gameQuery.test(s.item.group));
+const everyday = negatives.filter((s) => !gameQuery.test(s.item.group));
 console.log(
-  '| Sensitivity | GTA VI art caught | GTA 6 YouTube thumbnails caught | Other thumbnails blocked |',
+  `\nCross-validated (held-out search topics): ${art.length} art, ${youtube.length} GTA 6 videos, ${everyday.length} everyday and ${games.length} other-game videos.\n`,
 );
-console.log('| ---: | ---: | ---: | ---: |');
-for (const t of [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+console.log(
+  '| Sensitivity | GTA VI art caught | GTA 6 videos caught | Everyday videos blocked | Other-game videos blocked |',
+);
+console.log('| ---: | ---: | ---: | ---: | ---: |');
+for (const t of [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95])
   console.log(
-    `| ${t.toFixed(1)} | ${rate(art, t)} | ${rate(youtube, t)} | ${rate(negatives, t)} |`,
+    `| ${t.toFixed(2)} | ${rate(art, t)} | ${rate(youtube, t)} | ${rate(everyday, t)} | ${rate(games, t)} |`,
   );
+const worst = everyday.sort((a, b) => b.score - a.score).slice(0, 8);
+console.log('\nHighest-scoring everyday videos:');
+for (const { item, score } of worst)
+  console.log(`- ${score.toFixed(2)} ${item.group} ${item.url}`);
 
 // 5. Final classifier on everything.
 writeFileSync(
