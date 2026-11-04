@@ -70,13 +70,18 @@ function SettingsTab({
     () => setKeywordText(settings.keywords.join('\n')),
     [settings.keywords],
   );
+  // Polled while the popup is open, so "loading" turns into the result.
   useEffect(() => {
-    void browser.runtime
-      .sendMessage({ type: 'vg:status' })
-      .then((value) =>
-        setEngine((value as { engine: EngineStatus } | undefined)?.engine),
-      )
-      .catch(() => undefined);
+    const poll = () =>
+      void browser.runtime
+        .sendMessage({ type: 'vg:status' })
+        .then((value) =>
+          setEngine((value as { engine: EngineStatus } | undefined)?.engine),
+        )
+        .catch(() => undefined);
+    poll();
+    const timer = setInterval(poll, 1000);
+    return () => clearInterval(timer);
   }, []);
   return (
     <>
@@ -108,12 +113,16 @@ function SettingsTab({
       >
         Reads thumbnail text and recognises GTA 6 imagery on this device. Cards
         stay blank until checked and are removed if no verdict arrives in 10 s.
-        {engine && settings.imageLayer && (
-          <span className="engine">
-            {' '}
-            OCR: {engine.ocr} · CLIP: {engine.clip}
-            {engine.clipDevice &&
-              ` (${engine.clipDevice === 'webgpu' ? 'GPU' : 'CPU'})`}
+        {settings.imageLayer && (
+          <span className="engine" data-testid="engine">
+            Text reader: {engine?.ocr ?? 'starting'} · Image check:{' '}
+            {engine?.clip ?? 'starting'}
+            {engine?.clipDevice &&
+              ` on ${engine.clipDevice === 'webgpu' ? 'GPU' : 'CPU'}`}
+            {engine?.clipNote && <small>{engine.clipNote}</small>}
+            {engine?.clip === 'error' && engine.error && (
+              <small>{engine.error}</small>
+            )}
           </span>
         )}
       </Toggle>

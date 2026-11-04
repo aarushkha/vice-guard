@@ -254,6 +254,12 @@ p + input {
 .engine {
   display: block;
   margin-top: 4px;
+  font-weight: 600;
+}
+.engine small {
+  display: block;
+  font-weight: 400;
+  overflow-wrap: anywhere;
 }
 @media (prefers-color-scheme: dark) {
   nav,

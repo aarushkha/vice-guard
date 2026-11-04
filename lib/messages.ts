@@ -24,7 +24,8 @@ export type OffscreenMessage =
       wait: boolean;
     }
   | { target: 'offscreen'; type: 'vg:clip'; url: string }
-  | { target: 'offscreen'; type: 'vg:prioritize'; urls: string[] };
+  | { target: 'offscreen'; type: 'vg:prioritize'; urls: string[] }
+  | { target: 'offscreen'; type: 'vg:status' };
 export type OffscreenStatus = {
   target: 'background';
   type: 'vg:engine';

@@ -174,12 +174,26 @@ export default defineBackground(() => {
       return;
     }
     if (message.type === 'vg:status') {
-      sendResponse({
-        engine: engineStatus,
-        cached: cache.size(),
-        clipOutstanding,
-      });
-      return;
+      // Asked live: this worker may have restarted since the offscreen
+      // document last reported, and would otherwise say "loading" forever.
+      void (async () => {
+        if (settings.enabled && settings.imageLayer) {
+          await ensureOffscreen().catch(() => undefined);
+          const live = (await browser.runtime
+            .sendMessage({
+              target: 'offscreen',
+              type: 'vg:status',
+            } satisfies OffscreenMessage)
+            .catch(() => undefined)) as EngineStatus | undefined;
+          if (live) engineStatus = live;
+        }
+        sendResponse({
+          engine: engineStatus,
+          cached: cache.size(),
+          clipOutstanding,
+        });
+      })();
+      return true;
     }
     if (message.type === 'vg:image') {
       analyze(message.url)

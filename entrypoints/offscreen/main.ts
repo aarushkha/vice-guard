@@ -179,7 +179,11 @@ void (async () => {
     ?.requestAdapter()
     .catch(() => null);
   if (adapter) addClipWorker('webgpu');
-  else for (let i = 0; i < WORKERS; i++) addClipWorker('wasm');
+  else {
+    status.clipNote =
+      'Chrome offers no GPU (check chrome://gpu for "WebGPU: Hardware accelerated").';
+    for (let i = 0; i < WORKERS; i++) addClipWorker('wasm');
+  }
 })();
 /** CLIP has its own queue, on-screen images first. */
 function pumpClip() {
@@ -373,6 +377,10 @@ browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
       sendResponse,
     );
     return true;
+  }
+  if (message.type === 'vg:status') {
+    sendResponse(status);
+    return;
   }
   if (message.type === 'vg:prioritize') {
     const now = performance.now();
