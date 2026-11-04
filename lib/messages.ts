@@ -41,6 +41,10 @@ export interface EngineStatus {
   clipReadyMs?: number;
   /** Where CLIP runs: the GPU, or the CPU when there is no usable GPU. */
   clipDevice?: 'webgpu' | 'wasm';
+  /** The offscreen document is missing or not answering (from the background). */
+  problem?: string;
+  /** Uncaught errors in the offscreen document, newest last. */
+  crashes?: string[];
   /** Why the GPU was not used, when there is one. */
   clipNote?: string;
 }

@@ -71,24 +71,40 @@ export default defineBackground(() => {
 
   let engineStatus: EngineStatus = { ocr: 'loading', clip: 'loading' };
   const cache = createImageCache();
-  let offscreen: Promise<void> | undefined;
-  function ensureOffscreen() {
-    offscreen ??= (async () => {
-      const contexts = await browser.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT' as Browser.runtime.ContextType],
-      });
-      if (contexts.length) return;
-      await browser.offscreen.createDocument({
+  let creating: Promise<void> | undefined;
+  /** Why the offscreen document could not be created, if it could not. */
+  let offscreenError: string | undefined;
+  /**
+   * Makes sure the offscreen document (OCR and CLIP) exists. Checked on
+   * every call: Chrome can close or lose it (a crash, low memory), and it
+   * must then be created again rather than assumed to be there.
+   */
+  async function ensureOffscreen() {
+    const contexts = await browser.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT' as Browser.runtime.ContextType],
+    });
+    if (contexts.length) return;
+    creating ??= browser.offscreen
+      .createDocument({
         url: 'offscreen.html',
         reasons: ['WORKERS' as Browser.offscreen.Reason],
         justification:
           'Runs the local OCR and image models off the page main thread.',
-      });
-    })().catch((error: unknown) => {
-      offscreen = undefined;
-      throw error;
-    });
-    return offscreen;
+      })
+      .then(
+        () => {
+          offscreenError = undefined;
+          engineStatus = { ocr: 'loading', clip: 'loading' };
+        },
+        (error: unknown) => {
+          // Another call may have created it in the meantime.
+          if (!String(error).includes('single offscreen'))
+            offscreenError = String(error);
+        },
+      )
+      .finally(() => (creating = undefined));
+    await creating;
+    if (offscreenError) throw new Error(offscreenError);
   }
 
   // Load OCR and CLIP as soon as the worker starts, not on the first
@@ -177,18 +193,25 @@ export default defineBackground(() => {
       // Asked live: this worker may have restarted since the offscreen
       // document last reported, and would otherwise say "loading" forever.
       void (async () => {
+        let problem: string | undefined;
         if (settings.enabled && settings.imageLayer) {
-          await ensureOffscreen().catch(() => undefined);
+          await ensureOffscreen().catch(
+            (error: unknown) =>
+              (problem = `Image engine could not start: ${String(error)}`),
+          );
           const live = (await browser.runtime
             .sendMessage({
               target: 'offscreen',
               type: 'vg:status',
             } satisfies OffscreenMessage)
-            .catch(() => undefined)) as EngineStatus | undefined;
+            .catch((error: unknown) => {
+              problem ??= `Image engine is not answering: ${String(error)}`;
+              return undefined;
+            })) as EngineStatus | undefined;
           if (live) engineStatus = live;
         }
         sendResponse({
-          engine: engineStatus,
+          engine: problem ? { ...engineStatus, problem } : engineStatus,
           cached: cache.size(),
           clipOutstanding,
         });

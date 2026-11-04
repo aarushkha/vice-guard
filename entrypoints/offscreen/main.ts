@@ -26,6 +26,23 @@ const report = () =>
   void browser.runtime
     .sendMessage({ target: 'background', type: 'vg:engine', status })
     .catch(() => undefined);
+// Anything that goes wrong here is otherwise invisible; the popup shows it.
+const noteCrash = (text: string) => {
+  status.crashes = [...(status.crashes ?? []), text.slice(0, 300)].slice(-3);
+  report();
+};
+addEventListener('error', (event) => noteCrash(String(event.message)));
+// A model that never finishes loading would otherwise just say "loading".
+setTimeout(() => {
+  for (const part of ['ocr', 'clip'] as const)
+    if (status[part] === 'loading')
+      noteCrash(
+        `${part === 'ocr' ? 'Text reader' : 'Image check'} still loading after 60 s`,
+      );
+}, 60_000);
+addEventListener('unhandledrejection', (event) =>
+  noteCrash(String((event as PromiseRejectionEvent).reason)),
+);
 
 // Measured on 4 cores: two OCR and two single-threaded CLIP workers give the
 // best throughput (OCR and CLIP run side by side per image). More cores get
@@ -137,6 +154,8 @@ function addClipWorker(device: ClipDevice) {
     type: 'module',
   });
   worker.postMessage({ type: 'init', device });
+  worker.onerror = (event) =>
+    noteCrash(`CLIP worker: ${event.message || 'failed to start'}`);
   idleClip.push(worker);
   worker.onmessage = (event: MessageEvent) => {
     const data = event.data as {

@@ -120,9 +120,11 @@ function SettingsTab({
             {engine?.clipDevice &&
               ` on ${engine.clipDevice === 'webgpu' ? 'GPU' : 'CPU'}`}
             {engine?.clipNote && <small>{engine.clipNote}</small>}
-            {engine?.clip === 'error' && engine.error && (
-              <small>{engine.error}</small>
-            )}
+            {engine?.problem && <small>{engine.problem}</small>}
+            {engine?.error && <small>{engine.error}</small>}
+            {engine?.crashes?.map((text) => (
+              <small key={text}>{text}</small>
+            ))}
           </span>
         )}
       </Toggle>
