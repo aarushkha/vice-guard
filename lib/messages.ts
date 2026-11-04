@@ -16,7 +16,13 @@ export type ContentMessage =
 
 /** Background → offscreen document. */
 export type OffscreenMessage =
-  | { target: 'offscreen'; type: 'vg:analyze'; url: string }
+  | {
+      target: 'offscreen';
+      type: 'vg:analyze';
+      url: string;
+      /** The card stays blank until CLIP answers too ("Wait for image recognition"). */
+      wait: boolean;
+    }
   | { target: 'offscreen'; type: 'vg:clip'; url: string }
   | { target: 'offscreen'; type: 'vg:prioritize'; urls: string[] };
 export type OffscreenStatus = {
@@ -32,6 +38,10 @@ export interface EngineStatus {
   /** Milliseconds from offscreen start until each model was ready. */
   ocrReadyMs?: number;
   clipReadyMs?: number;
+  /** Where CLIP runs: the GPU, or the CPU when there is no usable GPU. */
+  clipDevice?: 'webgpu' | 'wasm';
+  /** Why the GPU was not used, when there is one. */
+  clipNote?: string;
 }
 
 export type { ImageResult };

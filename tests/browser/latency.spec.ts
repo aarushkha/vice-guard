@@ -17,7 +17,7 @@ test('image layer latency', async ({ extension: { popup } }) => {
     .toMatchObject({ ocr: 'ready', clip: 'ready' });
   const engine = (await status()).engine;
   console.log(
-    `warm-up: ocr ready ${engine.ocrReadyMs} ms, clip ready ${engine.clipReadyMs} ms (waited ${Date.now() - t0} ms after popup open)`,
+    `warm-up: ocr ready ${engine.ocrReadyMs} ms, clip ready ${engine.clipReadyMs} ms on ${engine.clipDevice}${engine.clipNote ? ` (${engine.clipNote})` : ''} (waited ${Date.now() - t0} ms after popup open)`,
   );
 
   const analyze = (url: string) =>

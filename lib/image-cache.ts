@@ -2,6 +2,12 @@ import { browser } from 'wxt/browser';
 import type { ImageResult } from './engine/engine';
 
 const MAX_ENTRIES = 5000;
+/**
+ * Bump whenever OCR or the CLIP classifier changes, so verdicts from the old
+ * models are not reused. Older caches are deleted on first use.
+ */
+const STORAGE_KEY = 'imageCache3';
+const OLD_KEYS = ['imageCache', 'imageCache2'];
 type Stored = Record<string, [ocr: string, clip: number | null, time: number]>;
 
 /** Sizing parameters that do not change what an image shows. */
@@ -45,10 +51,14 @@ export async function hashUrl(url: string): Promise<string> {
 export function createImageCache() {
   let entries: Stored | undefined;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
-  const load = async () =>
-    (entries ??=
-      ((await browser.storage.local.get('imageCache')).imageCache as
-        Stored | undefined) ?? {});
+  const load = async () => {
+    if (!entries) {
+      const stored = await browser.storage.local.get(STORAGE_KEY);
+      entries ??= (stored[STORAGE_KEY] as Stored | undefined) ?? {};
+      void browser.storage.local.remove(OLD_KEYS);
+    }
+    return entries;
+  };
   const save = () => {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -57,7 +67,7 @@ export function createImageCache() {
         list.sort((a, b) => a[1][2] - b[1][2]);
         entries = Object.fromEntries(list.slice(-MAX_ENTRIES));
       }
-      void browser.storage.local.set({ imageCache: entries });
+      void browser.storage.local.set({ [STORAGE_KEY]: entries });
     }, 2000);
   };
   return {

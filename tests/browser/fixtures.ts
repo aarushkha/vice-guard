@@ -91,6 +91,15 @@ export const test = base.extend<{
         '--ignore-certificate-errors',
         // Fixture hosts are local; never route them through a system proxy.
         '--no-proxy-server',
+        // VG_WEBGPU=1: a software WebGPU adapter, to exercise the GPU path.
+        ...(process.env.VG_WEBGPU
+          ? [
+              '--enable-unsafe-webgpu',
+              '--enable-features=Vulkan',
+              '--use-vulkan=swiftshader',
+              '--use-webgpu-adapter=swiftshader',
+            ]
+          : []),
       ],
     });
     const requests: string[] = [];

@@ -112,6 +112,8 @@ function SettingsTab({
           <span className="engine">
             {' '}
             OCR: {engine.ocr} · CLIP: {engine.clip}
+            {engine.clipDevice &&
+              ` (${engine.clipDevice === 'webgpu' ? 'GPU' : 'CPU'})`}
           </span>
         )}
       </Toggle>

@@ -10,7 +10,10 @@ export interface ImageResult {
   ocr?: string;
   /** CLIP probability that the image shows GTA 6. */
   clip?: number;
-  /** OCR is done and CLIP is still running; ask for it with `deps.clip`. */
+  /**
+   * A quick OCR pass is done; CLIP and the full OCR pass are still running.
+   * Ask for them with `deps.clip`.
+   */
   clipPending?: boolean;
   error?: string;
   /** Milliseconds spent per stage in the offscreen document (diagnostics). */
@@ -354,19 +357,25 @@ export function startEngine(
       const early = imageVerdict(state, results);
       const pending = state.urls.filter((_, i) => results[i]!.clipPending);
       if (early || !pending.length) return finish(early);
-      const late = Promise.all(pending.map(clipImage));
+      // The slow half: CLIP and a full OCR pass, which may read more text.
+      const late = Promise.all(pending.map(clipImage)).then((rest) => {
+        state.imageText = [state.imageText, ...rest.map((r) => r.ocr ?? '')]
+          .filter(Boolean)
+          .join(' | ');
+        return rest;
+      });
       if (settings.waitForClip) {
         // Strict: stays blank until CLIP has judged the image too.
         void late.then(
-          (clips) => current() && finish(imageVerdict(state, clips)),
+          (rest) => current() && finish(imageVerdict(state, rest)),
         );
         return;
       }
-      // Fast: show now; CLIP can still remove the card when it answers.
+      // Fast: show now; the slow half can still remove the card.
       finish(undefined);
-      void late.then((clips) => {
+      void late.then((rest) => {
         if (!current() || state.status !== 'ok') return;
-        const verdict = imageVerdict(state, clips);
+        const verdict = imageVerdict(state, rest);
         if (verdict) hide(card, state, verdict, true);
       });
     });

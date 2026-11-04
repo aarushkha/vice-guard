@@ -106,5 +106,9 @@ test('offscreen document logs no errors while reading thumbnails', async ({
       timeout: 60_000,
     })
     .toBeGreaterThanOrEqual(ids.length * 2);
-  expect(messages).toEqual([]);
+  // Chrome's own note when a machine has no GPU (as in CI); CLIP then runs
+  // on the CPU as intended.
+  expect(
+    messages.filter((text) => !text.includes('No available adapters')),
+  ).toEqual([]);
 });

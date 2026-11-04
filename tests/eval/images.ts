@@ -24,9 +24,12 @@ import sharp from 'sharp';
 import {
   brightTextMask,
   confidentText,
+  grayscale,
   OCR_MAX_SIDE,
+  OCR_MODEL_DIR,
   OCR_SCALE,
   ocrParameters,
+  pgm,
   recognizeOptions,
 } from '../../lib/image/ocr';
 import { gtaProbability, type Classifier } from '../../lib/image/score';
@@ -74,7 +77,7 @@ const images = [
 ];
 
 const worker = await createWorker('eng', OEM.LSTM_ONLY, {
-  langPath: 'node_modules/@tesseract.js-data/eng/4.0.0_best_int',
+  langPath: `public/models/${OCR_MODEL_DIR}`,
   gzip: true,
   cacheMethod: 'none',
 });
@@ -84,7 +87,7 @@ await worker.setParameters({
 });
 
 /**
- * The same two passes as the offscreen document, on the image as a site
+ * The same two passes as the offscreen document (the quick one first), on the image as a site
  * serves it (480x360 for rendered thumbnails) scaled the same way.
  */
 async function ocrPasses(path: string, synthetic: boolean) {
@@ -100,23 +103,16 @@ async function ocrPasses(path: string, synthetic: boolean) {
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  const original = await sharp(data, {
-    raw: { width: w, height: h, channels: 4 },
-  })
-    .png()
-    .toBuffer();
-  const mask = await sharp(
-    Buffer.from(brightTextMask(data, info.width, info.height)),
-    {
-      raw: { width: info.width, height: info.height, channels: 4 },
-    },
-  )
-    .png()
-    .toBuffer();
+  // The quick pass (bright text isolated) and the full pass, as PGM files.
   const texts = [];
-  for (const input of [original, mask])
+  for (const input of [
+    pgm(brightTextMask(data, info.width, info.height), info.width, info.height),
+    pgm(grayscale(data, info.width, info.height), info.width, info.height),
+  ])
     texts.push(
-      confidentText((await worker.recognize(input, {}, recognizeOptions)).data),
+      confidentText(
+        (await worker.recognize(Buffer.from(input), {}, recognizeOptions)).data,
+      ),
     );
   return texts.join(' | ');
 }

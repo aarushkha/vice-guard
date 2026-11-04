@@ -34,11 +34,11 @@ export default defineConfig({
     resolve: {
       alias: [
         {
-          // CPU-only onnxruntime: a 14 MB wasm instead of the 28 MB WebGPU one,
-          // loaded from public/ort rather than bundled a second time.
+          // onnxruntime's WebGPU build (it also runs on the CPU), with its
+          // wasm loaded from public/ort rather than bundled a second time.
           find: /^onnxruntime-web(\/webgpu)?$/,
           replacement: resolve(
-            'node_modules/onnxruntime-web/dist/ort.wasm.min.mjs',
+            'node_modules/onnxruntime-web/dist/ort.webgpu.min.mjs',
           ),
         },
       ],

@@ -1,9 +1,32 @@
 // One-time developer step: `npm run model`.
-// Downloads MobileCLIP-S0's vision encoder from Hugging Face into
-// public/models, so the extension makes no model requests at runtime.
+// Downloads MobileCLIP-S0's vision encoder from Hugging Face and Tesseract's
+// fast English model into public/models, so the extension makes no model
+// requests at runtime.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { VISION_FILE } from '../lib/image/clip-files';
+import { OCR_MODEL_FILE } from '../lib/image/ocr';
+
+// tessdata_fast reads thumbnail text as well as the "best" model the
+// tesseract.js package bundles (better on the eval) in half the time.
+const ocrModel = join('public/models', OCR_MODEL_FILE);
+if (!existsSync(ocrModel)) {
+  const response = await fetch(
+    'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/4.1.0/eng.traineddata',
+  );
+  if (!response.ok) throw new Error(`OCR model: HTTP ${response.status}`);
+  const data = Buffer.from(await response.arrayBuffer());
+  const sha = createHash('sha256').update(data).digest('hex');
+  if (
+    sha !== '7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2'
+  )
+    throw new Error(`OCR model: unexpected checksum ${sha}`);
+  mkdirSync(dirname(ocrModel), { recursive: true });
+  writeFileSync(ocrModel, gzipSync(data, { level: 9 }));
+  console.log(`Downloaded ${ocrModel}`);
+}
 
 const repo = 'Xenova/mobileclip_s0';
 const out = 'public/models/mobileclip_s0';

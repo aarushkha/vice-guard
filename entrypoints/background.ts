@@ -119,6 +119,7 @@ export default defineBackground(() => {
       target: 'offscreen',
       type: 'vg:analyze',
       url,
+      wait: settings.waitForClip,
     } satisfies OffscreenMessage)) as ImageResult | undefined;
     if (!result) return { error: 'no response' };
     if (!result.clipPending) {

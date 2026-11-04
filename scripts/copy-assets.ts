@@ -8,6 +8,7 @@ import {
   rmSync,
 } from 'node:fs';
 import { VISION_FILE } from '../lib/image/clip-files';
+import { OCR_MODEL_FILE } from '../lib/image/ocr';
 import { dirname, join } from 'node:path';
 
 // Some packages do not export package.json, so resolve their folders directly.
@@ -22,28 +23,37 @@ const copies: [from: string, to: string][] = [
     join(packageDir('tesseract.js-core'), 'tesseract-core-simd-lstm.wasm.js'),
     'public/tesseract/tesseract-core-simd-lstm.wasm.js',
   ],
+  // The WebGPU build, which also runs on the CPU when there is no GPU (as
+  // fast as the 14 MB CPU-only build, measured).
   [
     join(
-      packageDir('@tesseract.js-data/eng'),
-      '4.0.0_best_int/eng.traineddata.gz',
+      packageDir('onnxruntime-web'),
+      'dist/ort-wasm-simd-threaded.asyncify.wasm',
     ),
-    'public/tesseract/eng.traineddata.gz',
-  ],
-  // The plain (non-WebGPU) build: 14 MB instead of 27 MB.
-  [
-    join(packageDir('onnxruntime-web'), 'dist/ort-wasm-simd-threaded.wasm'),
-    'public/ort/ort-wasm-simd-threaded.wasm',
+    'public/ort/ort-wasm-simd-threaded.asyncify.wasm',
   ],
   [
-    join(packageDir('onnxruntime-web'), 'dist/ort-wasm-simd-threaded.mjs'),
-    'public/ort/ort-wasm-simd-threaded.mjs',
+    join(
+      packageDir('onnxruntime-web'),
+      'dist/ort-wasm-simd-threaded.asyncify.mjs',
+    ),
+    'public/ort/ort-wasm-simd-threaded.asyncify.mjs',
   ],
 ];
 
+// Only the runtime copied above may be in public/ort, or it is bundled too.
+rmSync('public/ort', { recursive: true, force: true });
 for (const [from, to] of copies) {
   mkdirSync(dirname(to), { recursive: true });
   copyFileSync(from, to);
 }
+
+// The OCR model now comes from `npm run model`; drop the old bundled copy.
+rmSync('public/tesseract/eng.traineddata.gz', { force: true });
+if (!existsSync(join('public/models', OCR_MODEL_FILE)))
+  throw new Error(
+    `Missing public/models/${OCR_MODEL_FILE}. Run \`npm run model\` to download it.`,
+  );
 
 const model = 'public/models/mobileclip_s0';
 // Only the shipped encoder may be in public/, or it is bundled too.
