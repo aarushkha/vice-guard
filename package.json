@@ -27,7 +27,9 @@
     "format:check": "prettier --check .",
     "export:morphe": "jiti scripts/export-morphe.ts",
     "eval:morphe": "jiti tests/eval/morphe.ts",
-    "export:java": "jiti scripts/export-java.ts"
+    "export:java": "jiti scripts/export-java.ts",
+    "build:lite": "wxt build --mode lite",
+    "zip:lite": "wxt zip --mode lite"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",

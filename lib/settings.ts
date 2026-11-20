@@ -1,3 +1,5 @@
+import { LITE } from './build';
+
 export type Mode = 'light' | 'balanced' | 'strict';
 export interface Settings {
   enabled: boolean;
@@ -28,7 +30,8 @@ export const defaults: Settings = {
   spoilerFree: false,
   keywords: [],
   showBadge: true,
-  imageLayer: true,
+  // The Lite build has no image engine.
+  imageLayer: !LITE,
   // Held out, with the classifier of calibration 2: blocks 1% of everyday
   // YouTube thumbnails and catches 85% of GTA VI art (npm run train:clip).
   clipThreshold: 0.9,
@@ -62,7 +65,7 @@ export function parseSettings(value: unknown): Settings {
         ].slice(0, 200)
       : [],
     showBadge: bool(data.showBadge, defaults.showBadge),
-    imageLayer: bool(data.imageLayer, defaults.imageLayer),
+    imageLayer: !LITE && bool(data.imageLayer, defaults.imageLayer),
     waitForClip: bool(data.waitForClip, defaults.waitForClip),
     clipThreshold:
       data.clipCalibration === defaults.clipCalibration &&

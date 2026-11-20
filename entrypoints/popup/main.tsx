@@ -18,6 +18,7 @@ import {
   saveSettings,
   watchStorage,
 } from '../../lib/storage';
+import { LITE } from '../../lib/build';
 import './style.css';
 
 const modes: { value: Mode; title: string; detail: string }[] = [
@@ -55,56 +56,20 @@ function Toggle(props: {
   );
 }
 
-function SettingsTab({
+/** OCR and CLIP controls; the Lite build has neither. */
+function ImageOptions({
   ready,
   settings,
   update,
+  engine,
 }: {
   ready: boolean;
   settings: Settings;
   update(patch: Partial<Settings>): void;
+  engine?: EngineStatus;
 }) {
-  const [keywordText, setKeywordText] = useState(settings.keywords.join('\n'));
-  const [engine, setEngine] = useState<EngineStatus>();
-  useEffect(
-    () => setKeywordText(settings.keywords.join('\n')),
-    [settings.keywords],
-  );
-  // Polled while the popup is open, so "loading" turns into the result.
-  useEffect(() => {
-    const poll = () =>
-      void browser.runtime
-        .sendMessage({ type: 'vg:status' })
-        .then((value) =>
-          setEngine((value as { engine: EngineStatus } | undefined)?.engine),
-        )
-        .catch(() => undefined);
-    poll();
-    const timer = setInterval(poll, 1000);
-    return () => clearInterval(timer);
-  }, []);
   return (
     <>
-      <fieldset disabled={!ready}>
-        <legend>Filtering</legend>
-        {modes.map((mode) => (
-          <label className="mode" key={mode.value}>
-            <input
-              type="radio"
-              name="mode"
-              checked={settings.mode === mode.value}
-              onChange={() => update({ mode: mode.value })}
-            />
-            <span>
-              {mode.title}
-              {mode.value === 'strict' && (
-                <span className="recommendation">Recommended</span>
-              )}
-              <small>{mode.detail}</small>
-            </span>
-          </label>
-        ))}
-      </fieldset>
       <Toggle
         label="Scan images"
         disabled={!ready}
@@ -160,6 +125,69 @@ function SettingsTab({
           about 1 in 100 ordinary YouTube thumbnails is hidden.
         </p>
       </section>
+    </>
+  );
+}
+
+function SettingsTab({
+  ready,
+  settings,
+  update,
+}: {
+  ready: boolean;
+  settings: Settings;
+  update(patch: Partial<Settings>): void;
+}) {
+  const [keywordText, setKeywordText] = useState(settings.keywords.join('\n'));
+  const [engine, setEngine] = useState<EngineStatus>();
+  useEffect(
+    () => setKeywordText(settings.keywords.join('\n')),
+    [settings.keywords],
+  );
+  // Polled while the popup is open, so "loading" turns into the result.
+  useEffect(() => {
+    if (LITE) return;
+    const poll = () =>
+      void browser.runtime
+        .sendMessage({ type: 'vg:status' })
+        .then((value) =>
+          setEngine((value as { engine: EngineStatus } | undefined)?.engine),
+        )
+        .catch(() => undefined);
+    poll();
+    const timer = setInterval(poll, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <>
+      <fieldset disabled={!ready}>
+        <legend>Filtering</legend>
+        {modes.map((mode) => (
+          <label className="mode" key={mode.value}>
+            <input
+              type="radio"
+              name="mode"
+              checked={settings.mode === mode.value}
+              onChange={() => update({ mode: mode.value })}
+            />
+            <span>
+              {mode.title}
+              {mode.value === 'strict' && (
+                <span className="recommendation">Recommended</span>
+              )}
+              <small>{mode.detail}</small>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      {!LITE && (
+        <ImageOptions
+          ready={ready}
+          settings={settings}
+          update={update}
+          engine={engine}
+        />
+      )}
       <Toggle
         label="Show hidden count on icon"
         disabled={!ready}
