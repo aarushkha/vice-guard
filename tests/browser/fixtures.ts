@@ -1,5 +1,6 @@
 import {
   chromium,
+  devices,
   expect,
   test as base,
   type BrowserContext,
@@ -73,13 +74,24 @@ async function startImageServer() {
 export const test = base.extend<{
   extension: Extension;
   settings: Record<string, unknown>;
+  /** The built extension to load: '.output/chrome-mv3-lite' for Vice Guard Lite. */
+  extensionDir: string;
+  /** A Playwright device to emulate, e.g. 'Pixel 7'. */
+  device: string | undefined;
 }>({
   settings: [{}, { option: true }],
-  extension: async ({ settings }, use) => {
-    const extensionPath = path.resolve('.output/chrome-mv3');
+  extensionDir: ['.output/chrome-mv3', { option: true }],
+  device: [undefined, { option: true }],
+  extension: async ({ settings, extensionDir, device }, use) => {
+    const extensionPath = path.resolve(extensionDir);
+    // Phone viewport, touch and user agent; Chromium decides the browser.
+    const { defaultBrowserType: _, ...emulation } = device
+      ? devices[device]!
+      : { defaultBrowserType: undefined };
     const images = await startImageServer();
     const port = (images.address() as AddressInfo).port;
     const context = await chromium.launchPersistentContext('', {
+      ...emulation,
       channel: 'chromium',
       // Set when the preinstalled browser differs from Playwright's pinned one.
       executablePath: process.env.VG_CHROMIUM || undefined,
@@ -305,3 +317,43 @@ export async function flashes(page: Page): Promise<string[]> {
 }
 
 export { expect };
+
+/** Appends the remaining cards in batches, as a feed does while scrolling. */
+export const streamScript = (container: string, rest: string[]) => `<script>
+  const rest = ${JSON.stringify(rest)};
+  const timer = setInterval(() => {
+    const target = document.querySelector(${JSON.stringify(container)});
+    const batch = rest.splice(0, 8);
+    if (!target || !batch.length) return clearInterval(timer), (window.__streamed = true);
+    target.insertAdjacentHTML('beforeend', batch.join(''));
+  }, 150);
+</script>`;
+
+/** Scrolls through the page until no card is waiting for a verdict. */
+export async function settle(page: Page, stepMs = 80) {
+  await page.waitForFunction(
+    () => (window as unknown as { __streamed?: boolean }).__streamed,
+    null,
+    { timeout: 30_000 },
+  );
+  const pending = () =>
+    page.evaluate(
+      () =>
+        document.querySelectorAll('[data-vg-wait]').length +
+        [...document.querySelectorAll<HTMLElement>('[data-expect]')].filter(
+          (card) =>
+            !card.closest('[data-vg-hit]') &&
+            [card, ...card.querySelectorAll<HTMLElement>('*')].some(
+              (node) => getComputedStyle(node).visibility === 'hidden',
+            ),
+        ).length,
+    );
+  const height = await page.evaluate(
+    () => document.documentElement.scrollHeight,
+  );
+  for (let y = 0; y <= height; y += 600) {
+    await page.evaluate((top) => scrollTo(0, top), y);
+    await page.waitForTimeout(stepMs);
+  }
+  await expect.poll(pending, { timeout: 60_000, intervals: [250] }).toBe(0);
+}

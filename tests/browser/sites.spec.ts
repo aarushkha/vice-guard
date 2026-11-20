@@ -20,6 +20,8 @@ import {
   flashes,
   openFixture,
   outcomes,
+  settle,
+  streamScript,
   test,
 } from './fixtures';
 
@@ -195,46 +197,6 @@ const fixtures: SiteFixture[] = [
     settings: { waitForClip: false },
   },
 ];
-
-/** Appends the remaining cards in batches, as a feed does while scrolling. */
-const streamScript = (container: string, rest: string[]) => `<script>
-  const rest = ${JSON.stringify(rest)};
-  const timer = setInterval(() => {
-    const target = document.querySelector(${JSON.stringify(container)});
-    const batch = rest.splice(0, 8);
-    if (!target || !batch.length) return clearInterval(timer), (window.__streamed = true);
-    target.insertAdjacentHTML('beforeend', batch.join(''));
-  }, 150);
-</script>`;
-
-/** Scrolls through the page until no card is waiting for a verdict. */
-async function settle(page: Page, stepMs = 80) {
-  await page.waitForFunction(
-    () => (window as unknown as { __streamed?: boolean }).__streamed,
-    null,
-    { timeout: 30_000 },
-  );
-  const pending = () =>
-    page.evaluate(
-      () =>
-        document.querySelectorAll('[data-vg-wait]').length +
-        [...document.querySelectorAll<HTMLElement>('[data-expect]')].filter(
-          (card) =>
-            !card.closest('[data-vg-hit]') &&
-            [card, ...card.querySelectorAll<HTMLElement>('*')].some(
-              (node) => getComputedStyle(node).visibility === 'hidden',
-            ),
-        ).length,
-    );
-  const height = await page.evaluate(
-    () => document.documentElement.scrollHeight,
-  );
-  for (let y = 0; y <= height; y += 600) {
-    await page.evaluate((top) => scrollTo(0, top), y);
-    await page.waitForTimeout(stepMs);
-  }
-  await expect.poll(pending, { timeout: 60_000, intervals: [250] }).toBe(0);
-}
 
 /** Visible grid items fill rows completely except the last: no gaps. */
 async function gridGaps(page: Page, item: string, columns: number) {
