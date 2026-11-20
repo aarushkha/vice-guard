@@ -26,7 +26,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "export:morphe": "jiti scripts/export-morphe.ts",
-    "eval:morphe": "jiti tests/eval/morphe.ts"
+    "eval:morphe": "jiti tests/eval/morphe.ts",
+    "export:java": "jiti scripts/export-java.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",

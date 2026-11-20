@@ -1,5 +1,6 @@
 // Lowercase Latin look-alikes from Cyrillic, Greek, small caps and IPA.
-const confusables: Record<string, string> = {
+// Exported for generators that port the matcher.
+export const confusables: Record<string, string> = {
   а: 'a',
   в: 'b',
   е: 'e',
