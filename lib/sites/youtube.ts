@@ -51,7 +51,7 @@ const cells = [
   'ytd-reel-item-renderer',
 ].join(',');
 
-function videoId(card: HTMLElement): string | undefined {
+export function videoId(card: HTMLElement): string | undefined {
   for (const link of card.querySelectorAll<HTMLAnchorElement>(
     'a[href*="/watch?"], a[href*="/shorts/"]',
   )) {
@@ -72,12 +72,44 @@ function skipAutoplay(doc: Document) {
     ?.click();
 }
 
-function pageChannel(location: Location): Source | undefined {
+export function pageChannel(location: Location): Source | undefined {
   const match = /^\/(@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)/.exec(
     location.pathname,
   );
   if (!match) return undefined;
   return { key: `youtube:${match[1]!.toLowerCase()}`, name: match[1]! };
+}
+
+/** Thumbnail URL, derived from the video ID so it works before lazy loading. */
+export function videoImages(card: HTMLElement): string[] {
+  const id = videoId(card);
+  if (id) return [`https://i.ytimg.com/vi/${id}/hqdefault.jpg`];
+  const style = card.querySelector<HTMLElement>('[style*="background-image"]')
+    ?.style.backgroundImage;
+  const url = /url\("?([^")]+)/.exec(style ?? '')?.[1];
+  return url ? [new URL(url, location.href).href] : [];
+}
+
+/** The channel of a card, by its link or its avatar's label. */
+export function channelSource(card: HTMLElement): Source | undefined {
+  const link = card.querySelector<HTMLAnchorElement>(
+    'a[href^="/@"], a[href^="/channel/"], a[href^="/c/"]',
+  );
+  const href = link?.getAttribute('href');
+  const handle =
+    href && /^\/(@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)/.exec(href)?.[1];
+  if (handle)
+    return {
+      key: `youtube:${handle.toLowerCase()}`,
+      name: link?.textContent?.trim() || handle,
+    };
+  const label = card
+    .querySelector('[aria-label^="Go to channel "]')
+    ?.getAttribute('aria-label')
+    ?.slice('Go to channel '.length)
+    .trim();
+  if (label) return { key: `youtube:name:${label.toLowerCase()}`, name: label };
+  return undefined;
 }
 
 export const youtube: SiteModule = {
@@ -99,35 +131,12 @@ export const youtube: SiteModule = {
   images(card) {
     if (card.matches('ytd-comment-thread-renderer, ytd-comment-view-model'))
       return [];
-    // Derived from the video ID, so it works before YouTube lazy-loads the image.
-    const id = videoId(card);
-    if (id) return [`https://i.ytimg.com/vi/${id}/hqdefault.jpg`];
-    const style = card.querySelector<HTMLElement>('[style*="background-image"]')
-      ?.style.backgroundImage;
-    const url = /url\("?([^")]+)/.exec(style ?? '')?.[1];
-    return url ? [new URL(url, location.href).href] : [];
+    return videoImages(card);
   },
   source(card) {
-    const link = card.querySelector<HTMLAnchorElement>(
-      'a[href^="/@"], a[href^="/channel/"], a[href^="/c/"]',
-    );
-    const href = link?.getAttribute('href');
-    const handle =
-      href && /^\/(@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)/.exec(href)?.[1];
-    if (handle)
-      return {
-        key: `youtube:${handle.toLowerCase()}`,
-        name: link?.textContent?.trim() || handle,
-      };
-    const label = card
-      .querySelector('[aria-label^="Go to channel "]')
-      ?.getAttribute('aria-label')
-      ?.slice('Go to channel '.length);
-    if (label)
-      return { key: `youtube:name:${label.toLowerCase()}`, name: label };
     if (card.matches('ytd-comment-thread-renderer, ytd-comment-view-model'))
-      return undefined;
-    return pageChannel(location);
+      return channelSource(card);
+    return channelSource(card) ?? pageChannel(location);
   },
   expectsCards: (location) =>
     /^\/($|results|watch|feed\/|shorts\/|@|channel\/|c\/)/.test(

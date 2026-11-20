@@ -1,5 +1,11 @@
 export type SiteId =
-  'youtube' | 'reddit' | 'x' | 'google' | 'gnews' | 'generic';
+  | 'youtube'
+  | 'youtube-mobile'
+  | 'reddit'
+  | 'x'
+  | 'google'
+  | 'gnews'
+  | 'generic';
 
 /** The account a card came from: a channel, subreddit or X handle. */
 export interface Source {
