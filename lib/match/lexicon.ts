@@ -3,11 +3,16 @@ import { tokenize, BOUNDARY } from './normalize';
 
 /** Phrases are stored as stemmed token lists so they match tokenized cards. */
 export type Phrase = string[];
-const phrases = (...list: string[]): Phrase[] =>
-  list.map((text) =>
-    tokenize(text)
-      .filter((t) => t !== BOUNDARY)
-      .map(stem),
+/** Stemmed phrases, plus the phrases as written for exporters (`text`). */
+export type PhraseList = Phrase[] & { readonly text: readonly string[] };
+const phrases = (...list: string[]): PhraseList =>
+  Object.assign(
+    list.map((text) =>
+      tokenize(text)
+        .filter((t) => t !== BOUNDARY)
+        .map(stem),
+    ),
+    { text: list },
   );
 
 /** Explicit sequel numbers that follow "GTA" or "Grand Theft Auto". */

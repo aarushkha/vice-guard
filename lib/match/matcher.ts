@@ -83,6 +83,9 @@ const gluedPhrases = new Map<string, string[]>(
 // Tesseract often reads a stylised "6" as G, b or 61 next to "GTA".
 const ocrSix = new Set(['g', 'b', '61', '611', '6i', 'gi', '6l', 'e']);
 
+/** Derived tables, for generators that port the matcher to other languages. */
+export const tables = { lists, vocabulary, gluedPhrases, ocrSix };
+
 function canonical(token: string, ocr: boolean): string[] {
   if (token === BOUNDARY) return [token];
   const phrase = gluedPhrases.get(token);

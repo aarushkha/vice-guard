@@ -24,3 +24,7 @@ tests/eval/sites-report.md
 tests/eval/images-real/
 # Written by npm run eval
 tests/eval/report.md
+
+# Written by npm run export:morphe and npm run eval:morphe
+dist/
+tests/eval/morphe-report.md
